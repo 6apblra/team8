@@ -22,7 +22,7 @@ export default function App() {
               <NavigationContainer>
                 <RootStackNavigator />
               </NavigationContainer>
-              <StatusBar style="auto" />
+              <StatusBar style="light" />
             </KeyboardProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>
@@ -34,5 +34,6 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: "#0A0E1A",
   },
 });

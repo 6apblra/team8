@@ -1,0 +1,329 @@
+import React, { useState, useCallback } from "react";
+import { View, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+  interpolate,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
+import { useAuth } from "@/lib/auth-context";
+import { apiRequest } from "@/lib/query-client";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { ActionButton } from "@/components/ActionButton";
+import { SwipeCard } from "@/components/SwipeCard";
+import { Colors, Spacing } from "@/constants/theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+
+interface FeedCandidate {
+  id: string;
+  userId: string;
+  nickname: string;
+  avatarUrl?: string | null;
+  age?: number | null;
+  bio?: string | null;
+  region: string;
+  languages?: string[];
+  micEnabled?: boolean;
+  userGames: Array<{
+    gameId: string;
+    rank?: string | null;
+    roles?: string[];
+    playstyle?: string | null;
+  }>;
+  availability: Array<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  }>;
+}
+
+export default function DiscoverScreen() {
+  const headerHeight = useHeaderHeight();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { user } = useAuth();
+  const theme = Colors.dark;
+  const queryClient = useQueryClient();
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  const { data: candidates = [], isLoading, refetch } = useQuery<FeedCandidate[]>({
+    queryKey: ["/api/feed", user?.id],
+    enabled: !!user?.id,
+  });
+
+  const { data: swipeStatus } = useQuery<{ dailyCount: number; limit: number; remaining: number }>({
+    queryKey: ["/api/swipe-status", user?.id],
+    enabled: !!user?.id,
+  });
+
+  const swipeMutation = useMutation({
+    mutationFn: async ({ toUserId, swipeType }: { toUserId: string; swipeType: string }) => {
+      const response = await apiRequest("POST", "/api/swipe", {
+        fromUserId: user?.id,
+        toUserId,
+        swipeType,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.match) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/swipe-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    },
+  });
+
+  const currentCandidate = candidates[currentIndex];
+  const nextCandidate = candidates[currentIndex + 1];
+
+  const handleSwipe = useCallback(
+    (direction: "left" | "right" | "up") => {
+      if (!currentCandidate) return;
+
+      const swipeType = direction === "left" ? "skip" : direction === "up" ? "super" : "like";
+
+      Haptics.impactAsync(
+        direction === "up"
+          ? Haptics.ImpactFeedbackStyle.Heavy
+          : Haptics.ImpactFeedbackStyle.Medium
+      );
+
+      swipeMutation.mutate({
+        toUserId: currentCandidate.userId,
+        swipeType,
+      });
+
+      setCurrentIndex((prev) => prev + 1);
+    },
+    [currentCandidate, swipeMutation]
+  );
+
+  const resetPosition = () => {
+    translateX.value = withSpring(0, { damping: 20 });
+    translateY.value = withSpring(0, { damping: 20 });
+  };
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY;
+    })
+    .onEnd((event) => {
+      if (event.translationY < -100 && Math.abs(event.translationX) < 50) {
+        translateY.value = withSpring(-500, { damping: 20 });
+        runOnJS(handleSwipe)("up");
+      } else if (event.translationX > SWIPE_THRESHOLD) {
+        translateX.value = withSpring(SCREEN_WIDTH * 1.5, { damping: 20 });
+        runOnJS(handleSwipe)("right");
+      } else if (event.translationX < -SWIPE_THRESHOLD) {
+        translateX.value = withSpring(-SCREEN_WIDTH * 1.5, { damping: 20 });
+        runOnJS(handleSwipe)("left");
+      } else {
+        runOnJS(resetPosition)();
+      }
+    });
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])}deg` },
+    ],
+  }));
+
+  const handleButtonSwipe = (direction: "left" | "right" | "up") => {
+    if (!currentCandidate) return;
+
+    const targetX = direction === "left" ? -SCREEN_WIDTH * 1.5 : direction === "right" ? SCREEN_WIDTH * 1.5 : 0;
+    const targetY = direction === "up" ? -500 : 0;
+
+    translateX.value = withSpring(targetX, { damping: 20 });
+    translateY.value = withSpring(targetY, { damping: 20 });
+
+    setTimeout(() => {
+      handleSwipe(direction);
+      translateX.value = 0;
+      translateY.value = 0;
+    }, 200);
+  };
+
+  if (isLoading) {
+    return (
+      <ThemedView style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <ThemedText style={styles.loadingText}>Finding teammates...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!currentCandidate) {
+    return (
+      <ThemedView style={[styles.container, styles.centered, { paddingTop: headerHeight }]}>
+        <Feather name="users" size={80} color={theme.textSecondary} />
+        <ThemedText type="h3" style={styles.emptyTitle}>
+          No More Profiles
+        </ThemedText>
+        <ThemedText style={styles.emptySubtitle}>
+          Check back later for new teammates
+        </ThemedText>
+        <ActionButton
+          icon="refresh-cw"
+          color={theme.primary}
+          onPress={() => {
+            setCurrentIndex(0);
+            refetch();
+          }}
+          size="large"
+        />
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={[styles.content, { paddingTop: headerHeight + Spacing.md }]}>
+        <View style={styles.swipeCounter}>
+          <Feather name="heart" size={16} color={theme.primary} />
+          <ThemedText style={styles.swipeCounterText}>
+            {swipeStatus?.remaining ?? 50} swipes left today
+          </ThemedText>
+        </View>
+
+        <View style={styles.cardContainer}>
+          {nextCandidate ? (
+            <View style={styles.nextCard}>
+              <SwipeCard
+                profile={{
+                  id: nextCandidate.id,
+                  nickname: nextCandidate.nickname,
+                  avatarUrl: nextCandidate.avatarUrl,
+                  age: nextCandidate.age,
+                  bio: nextCandidate.bio,
+                  region: nextCandidate.region,
+                  languages: nextCandidate.languages,
+                  micEnabled: nextCandidate.micEnabled,
+                }}
+                userGames={nextCandidate.userGames}
+                translateX={useSharedValue(0)}
+                isTopCard={false}
+              />
+            </View>
+          ) : null}
+
+          <GestureDetector gesture={panGesture}>
+            <Animated.View style={[styles.currentCard, cardStyle]}>
+              <SwipeCard
+                profile={{
+                  id: currentCandidate.id,
+                  nickname: currentCandidate.nickname,
+                  avatarUrl: currentCandidate.avatarUrl,
+                  age: currentCandidate.age,
+                  bio: currentCandidate.bio,
+                  region: currentCandidate.region,
+                  languages: currentCandidate.languages,
+                  micEnabled: currentCandidate.micEnabled,
+                }}
+                userGames={currentCandidate.userGames}
+                translateX={translateX}
+                isTopCard={true}
+              />
+            </Animated.View>
+          </GestureDetector>
+        </View>
+
+        <View style={[styles.actions, { paddingBottom: tabBarHeight + Spacing.md }]}>
+          <ActionButton
+            icon="x"
+            color={theme.danger}
+            onPress={() => handleButtonSwipe("left")}
+            size="large"
+          />
+          <ActionButton
+            icon="arrow-up"
+            color={theme.secondary}
+            onPress={() => handleButtonSwipe("up")}
+            size="medium"
+          />
+          <ActionButton
+            icon="heart"
+            color={theme.success}
+            onPress={() => handleButtonSwipe("right")}
+            size="large"
+          />
+        </View>
+      </View>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  loadingText: {
+    color: "#A0A8B8",
+    marginTop: Spacing.md,
+  },
+  emptyTitle: {
+    color: "#FFFFFF",
+    marginTop: Spacing.lg,
+  },
+  emptySubtitle: {
+    color: "#A0A8B8",
+    fontSize: 16,
+    marginBottom: Spacing.lg,
+  },
+  content: {
+    flex: 1,
+  },
+  swipeCounter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  swipeCounterText: {
+    color: "#A0A8B8",
+    fontSize: 14,
+  },
+  cardContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
+  },
+  nextCard: {
+    position: "absolute",
+    transform: [{ scale: 0.95 }],
+    opacity: 0.7,
+  },
+  currentCard: {
+    position: "absolute",
+  },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.xl,
+    paddingTop: Spacing.lg,
+  },
+});

@@ -1,5 +1,8 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
@@ -10,6 +13,12 @@ const log = console.log;
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
+  }
+}
+
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
   }
 }
 
@@ -45,6 +54,29 @@ function setupCors(app: express.Application) {
 
     next();
   });
+}
+
+function setupSession(app: express.Application) {
+  const PgSession = connectPgSimple(session);
+
+  app.use(
+    session({
+      store: new PgSession({
+        pool: pool,
+        tableName: "session",
+        createTableIfMissing: true,
+      }),
+      secret: process.env.SESSION_SECRET || "teamup-secret-key-change-in-production",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        sameSite: "lax",
+      },
+    })
+  );
 }
 
 function setupBodyParsing(app: express.Application) {
@@ -218,6 +250,7 @@ function setupErrorHandler(app: express.Application) {
 
 (async () => {
   setupCors(app);
+  setupSession(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
 
