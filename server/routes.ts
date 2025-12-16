@@ -18,11 +18,11 @@ async function seedGames() {
   const existingGames = await storage.getGames();
   if (existingGames.length === 0) {
     await db.insert(games).values([
-      { name: "Valorant", icon: "valorant" },
-      { name: "CS2", icon: "cs2" },
-      { name: "Dota 2", icon: "dota2" },
-      { name: "Fortnite", icon: "fortnite" },
-      { name: "League of Legends", icon: "lol" },
+      { id: "valorant", name: "Valorant", icon: "valorant" },
+      { id: "cs2", name: "CS2", icon: "cs2" },
+      { id: "dota2", name: "Dota 2", icon: "dota2" },
+      { id: "fortnite", name: "Fortnite", icon: "fortnite" },
+      { id: "lol", name: "League of Legends", icon: "lol" },
     ]);
   }
 }
@@ -207,6 +207,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/user-games/:userId", requireAuth, async (req, res) => {
+    try {
+      const sessionUserId = req.session.userId!;
+      if (req.params.userId !== sessionUserId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { games: newGames } = req.body;
+      await storage.setUserGames(sessionUserId, newGames.map((g: any) => ({ ...g, userId: sessionUserId })));
+      const updated = await storage.getUserGames(sessionUserId);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Set user games error:", error);
+      return res.status(500).json({ error: "Failed to set user games" });
+    }
+  });
+
   app.get("/api/availability/:userId", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
@@ -224,6 +240,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { windows } = req.body;
       await storage.setAvailability(userId, windows);
       const updated = await storage.getAvailability(userId);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Set availability error:", error);
+      return res.status(500).json({ error: "Failed to set availability" });
+    }
+  });
+
+  app.post("/api/availability/:userId", requireAuth, async (req, res) => {
+    try {
+      const sessionUserId = req.session.userId!;
+      if (req.params.userId !== sessionUserId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { windows } = req.body;
+      await storage.setAvailability(sessionUserId, windows);
+      const updated = await storage.getAvailability(sessionUserId);
       return res.json(updated);
     } catch (error) {
       console.error("Set availability error:", error);
