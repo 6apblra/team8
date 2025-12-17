@@ -53,8 +53,8 @@ class WebSocketManager {
         }
       };
 
-      this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+      this.ws.onerror = () => {
+        // Silently handle WebSocket errors - reconnection will happen automatically
         this.isConnecting = false;
       };
     } catch (error) {
