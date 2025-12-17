@@ -149,3 +149,11 @@ Preferred communication style: Simple, everyday language.
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS`: CORS configuration
 - `SESSION_SECRET`: Express session encryption key
+
+## Recent Changes
+
+**December 2024:**
+- Implemented WebSocket-based real-time chat with typing indicators and instant message delivery
+- Architecture: REST API creates messages (single source of truth), WebSocket broadcasts events
+- Fixed React hooks error in DiscoverScreen by moving inline `useSharedValue(0)` to component top level
+- WebSocket connection lifecycle tied to authentication state (connects on login, disconnects on logout)
