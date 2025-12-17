@@ -61,6 +61,7 @@ export default function DiscoverScreen() {
   const [filters, setFilters] = useState<SavedFilters | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const nextCardTranslateX = useSharedValue(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -266,7 +267,7 @@ export default function DiscoverScreen() {
                   micEnabled: nextCandidate.micEnabled,
                 }}
                 userGames={nextCandidate.userGames}
-                translateX={useSharedValue(0)}
+                translateX={nextCardTranslateX}
                 isTopCard={false}
               />
             </View>

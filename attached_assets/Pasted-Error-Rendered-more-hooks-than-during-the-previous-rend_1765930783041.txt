@@ -1,0 +1,20 @@
+Error: Rendered more hooks than during the previous render.
+
+Stack Trace:
+updateWorkInProgressHook@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:8164:22
+updateReducer@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:8255:42
+useState@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:17226:31
+useSharedValue@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:88169:43
+DiscoverScreen@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:159176:69
+react-stack-bottom-frame@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:17840:29
+renderWithHooks@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:8050:40
+updateFunctionComponent@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:9743:34
+runWithFiberInDEV@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:5822:135
+performUnitOfWork@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12402:112
+workLoopSync@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12295:57
+renderRootSync@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12279:21
+performWorkOnRoot@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12043:58
+performSyncWorkOnRoot@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:13007:24
+flushSyncWorkAcrossRoots_impl@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12926:329
+processRootScheduleInMicrotask@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:12946:36
+@https://b48befe5-4fd6-4501-96dc-333737ebb7b9-00-1zorkt0y93ice.picard.replit.dev/client/index.bundle:13018:184
