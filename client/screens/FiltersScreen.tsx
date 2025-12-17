@@ -20,6 +20,7 @@ export interface SavedFilters {
   languages: string[];
   micRequired: boolean;
   playstyles: string[];
+  availableNowOnly: boolean;
 }
 
 export default function FiltersScreen() {
@@ -33,6 +34,7 @@ export default function FiltersScreen() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [micRequired, setMicRequired] = useState(false);
   const [selectedPlaystyles, setSelectedPlaystyles] = useState<string[]>([]);
+  const [availableNowOnly, setAvailableNowOnly] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function FiltersScreen() {
           setSelectedLanguages(filters.languages || []);
           setMicRequired(filters.micRequired || false);
           setSelectedPlaystyles(filters.playstyles || []);
+          setAvailableNowOnly(filters.availableNowOnly || false);
         }
       } catch (error) {
         console.error("Failed to load filters:", error);
@@ -87,6 +90,7 @@ export default function FiltersScreen() {
       languages: selectedLanguages,
       micRequired,
       playstyles: selectedPlaystyles,
+      availableNowOnly,
     };
     await AsyncStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
     navigation.goBack();
@@ -98,11 +102,13 @@ export default function FiltersScreen() {
     setSelectedLanguages([]);
     setMicRequired(false);
     setSelectedPlaystyles([]);
+    setAvailableNowOnly(false);
   };
 
   const hasFilters =
     selectedGames.length > 0 ||
     selectedRegions.length > 0 ||
+    availableNowOnly ||
     selectedLanguages.length > 0 ||
     micRequired ||
     selectedPlaystyles.length > 0;
@@ -238,6 +244,30 @@ export default function FiltersScreen() {
               />
             </Pressable>
           </View>
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleLabel}>
+              <Feather name="zap" size={20} color={availableNowOnly ? theme.secondary : theme.text} />
+              <View style={styles.toggleLabelContent}>
+                <ThemedText style={styles.toggleText}>Available Now Only</ThemedText>
+                <ThemedText style={styles.toggleSubtext}>Show only players ready to play</ThemedText>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => setAvailableNowOnly(!availableNowOnly)}
+              style={[
+                styles.toggle,
+                { backgroundColor: availableNowOnly ? theme.secondary : theme.backgroundSecondary },
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleKnob,
+                  { transform: [{ translateX: availableNowOnly ? 20 : 0 }] },
+                ]}
+              />
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
 
@@ -312,6 +342,13 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 16,
     color: "#FFFFFF",
+  },
+  toggleLabelContent: {
+    gap: 2,
+  },
+  toggleSubtext: {
+    fontSize: 12,
+    color: "#A0A8B8",
   },
   toggle: {
     width: 50,

@@ -153,6 +153,13 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 **December 2024:**
+- Implemented Activity Status feature with "Ready to Play" toggle and real-time online indicators
+  - Users can mark themselves as "Available Now" for 1 hour to signal they're looking for teammates
+  - Online status shown via green dot indicators on swipe cards
+  - "Available Now" badge displayed on cards for users actively seeking matches
+  - Countdown timer shows remaining availability time on profile screen
+  - Filter option to show only "Available Now" users in discover feed
+  - Backend: lastSeenAt tracking via 30-second heartbeat, isAvailableNow with expiration
 - Implemented WebSocket-based real-time chat with typing indicators and instant message delivery
 - Architecture: REST API creates messages (single source of truth), WebSocket broadcasts events
 - Fixed React hooks error in DiscoverScreen by moving inline `useSharedValue(0)` to component top level

@@ -267,12 +267,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/feed", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const { gameId, region, language } = req.query;
+      const { gameId, region, language, availableNowOnly } = req.query;
 
       const candidates = await storage.getFeedCandidates(userId, {
         gameId: gameId as string,
         region: region as string,
         language: language as string,
+        availableNowOnly: availableNowOnly === "true",
       });
 
       return res.json(candidates);

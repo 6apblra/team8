@@ -54,6 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user && !isLoading) {
       wsManager.connect();
+      
+      const sendHeartbeat = async () => {
+        try {
+          const baseUrl = getApiUrl();
+          const url = new URL('/api/heartbeat', baseUrl);
+          await fetch(url, { method: 'POST', credentials: 'include' });
+        } catch (error) {
+          // Silent fail for heartbeat
+        }
+      };
+      
+      sendHeartbeat();
+      const heartbeatInterval = setInterval(sendHeartbeat, 60000);
+      
+      return () => clearInterval(heartbeatInterval);
     } else if (!isLoading) {
       wsManager.disconnect();
     }

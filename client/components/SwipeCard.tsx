@@ -37,6 +37,8 @@ interface SwipeCardProps {
   userGames: UserGame[];
   translateX: SharedValue<number>;
   isTopCard?: boolean;
+  isOnline?: boolean;
+  isAvailableNow?: boolean;
 }
 
 const AVATAR_PLACEHOLDERS = [
@@ -50,6 +52,8 @@ export function SwipeCard({
   userGames,
   translateX,
   isTopCard = false,
+  isOnline = false,
+  isAvailableNow = false,
 }: SwipeCardProps) {
   const theme = Colors.dark;
 
@@ -97,10 +101,22 @@ export function SwipeCard({
         <Animated.View style={[styles.nopeLabel, nopeOpacity]}>
           <ThemedText style={styles.nopeLabelText}>NOPE</ThemedText>
         </Animated.View>
-        <View style={styles.onlineIndicator}>
-          <View style={styles.onlineDot} />
-          <ThemedText style={styles.onlineText}>Online</ThemedText>
-        </View>
+        {isOnline || isAvailableNow ? (
+          <View style={styles.statusContainer}>
+            {isAvailableNow ? (
+              <View style={[styles.statusBadge, styles.availableBadge]}>
+                <Feather name="zap" size={12} color="#FFFFFF" />
+                <ThemedText style={styles.statusText}>Ready to Play</ThemedText>
+              </View>
+            ) : null}
+            {isOnline ? (
+              <View style={[styles.statusBadge, styles.onlineBadge]}>
+                <View style={styles.onlineDot} />
+                <ThemedText style={styles.statusText}>Online</ThemedText>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.content}>
@@ -206,17 +222,26 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
   },
-  onlineIndicator: {
+  statusContainer: {
     position: "absolute",
     top: 12,
     right: 12,
+    gap: 6,
+    alignItems: "flex-end",
+  },
+  statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     gap: 6,
+  },
+  onlineBadge: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  availableBadge: {
+    backgroundColor: "#B857FF",
   },
   onlineDot: {
     width: 8,
@@ -224,9 +249,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#00FF88",
   },
-  onlineText: {
+  statusText: {
     fontSize: 12,
     color: "#FFFFFF",
+    fontWeight: "600",
   },
   content: {
     padding: Spacing.lg,

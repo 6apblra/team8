@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, Pressable, Alert, ScrollView, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -7,8 +7,10 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
+import { apiRequest } from "@/lib/query-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -37,6 +39,8 @@ interface ProfileData {
     discordTag?: string | null;
     steamId?: string | null;
     riotId?: string | null;
+    isAvailableNow?: boolean;
+    availableUntil?: string | null;
   };
   userGames: UserGame[];
   availability: Array<{ dayOfWeek: number; startTime: string; endTime: string }>;
@@ -49,11 +53,76 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile, logout } = useAuth();
   const theme = Colors.dark;
+  const queryClient = useQueryClient();
+  const [isAvailableNow, setIsAvailableNow] = useState(false);
+  const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
+  const [remainingMinutes, setRemainingMinutes] = useState<number | null>(null);
 
   const { data: profileData } = useQuery<ProfileData>({
     queryKey: ["/api/profile", user?.id],
     enabled: !!user?.id && !!profile,
   });
+
+  useEffect(() => {
+    if (profileData?.profile) {
+      const { isAvailableNow: available, availableUntil: until } = profileData.profile;
+      setIsAvailableNow(!!available);
+      setAvailableUntil(until ? new Date(until) : null);
+    }
+  }, [profileData]);
+
+  useEffect(() => {
+    if (!isAvailableNow || !availableUntil) {
+      setRemainingMinutes(null);
+      return;
+    }
+    const updateRemaining = () => {
+      const now = new Date();
+      const diff = availableUntil.getTime() - now.getTime();
+      if (diff <= 0) {
+        setIsAvailableNow(false);
+        setAvailableUntil(null);
+        setRemainingMinutes(null);
+      } else {
+        setRemainingMinutes(Math.ceil(diff / 60000));
+      }
+    };
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 60000);
+    return () => clearInterval(interval);
+  }, [isAvailableNow, availableUntil]);
+
+  const setAvailableMutation = useMutation({
+    mutationFn: async (durationMinutes: number) => {
+      return apiRequest("POST", "/api/available-now", { durationMinutes });
+    },
+    onSuccess: (data: any) => {
+      setIsAvailableNow(true);
+      setAvailableUntil(new Date(data.availableUntil));
+      queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const clearAvailableMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", "/api/available-now", {});
+    },
+    onSuccess: () => {
+      setIsAvailableNow(false);
+      setAvailableUntil(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+  });
+
+  const toggleAvailableNow = () => {
+    if (isAvailableNow) {
+      clearAvailableMutation.mutate();
+    } else {
+      setAvailableMutation.mutate(60);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -161,6 +230,44 @@ export default function ProfileScreen() {
                 <Feather name="message-square" size={18} color={theme.textSecondary} />
                 <ThemedText style={styles.detailLabel}>Discord</ThemedText>
                 <ThemedText style={styles.detailValue}>{displayProfile.discordTag}</ThemedText>
+              </View>
+            ) : null}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Activity Status
+          </ThemedText>
+          <Card elevation={1}>
+            <View style={styles.availableRow}>
+              <View style={styles.availableInfo}>
+                <View style={styles.availableHeader}>
+                  <Feather name="zap" size={20} color={isAvailableNow ? theme.secondary : theme.textSecondary} />
+                  <ThemedText style={[styles.settingLabel, { flex: 0 }]}>Ready to Play</ThemedText>
+                </View>
+                <ThemedText style={styles.availableDescription}>
+                  {isAvailableNow 
+                    ? "Others can see you're looking for teammates now"
+                    : "Let others know you're available to play"
+                  }
+                </ThemedText>
+              </View>
+              <Switch
+                value={isAvailableNow}
+                onValueChange={toggleAvailableNow}
+                trackColor={{ false: "#3A3F47", true: theme.secondary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            {isAvailableNow && remainingMinutes !== null ? (
+              <View style={styles.availableTimer}>
+                <Feather name="clock" size={14} color={theme.textSecondary} />
+                <ThemedText style={styles.timerText}>
+                  {remainingMinutes >= 60
+                    ? `Active for ${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m`
+                    : `Active for ${remainingMinutes}m`}
+                </ThemedText>
               </View>
             ) : null}
           </Card>
@@ -308,5 +415,38 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#2A3040",
     marginLeft: 34,
+  },
+  availableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
+  },
+  availableInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  availableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  availableDescription: {
+    color: "#A0A8B8",
+    fontSize: 13,
+    marginLeft: 28,
+  },
+  availableTimer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "#2A3040",
+    marginTop: Spacing.sm,
+  },
+  timerText: {
+    color: "#A0A8B8",
+    fontSize: 13,
   },
 });

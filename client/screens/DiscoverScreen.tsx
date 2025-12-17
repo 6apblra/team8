@@ -48,6 +48,8 @@ interface FeedCandidate {
     startTime: string;
     endTime: string;
   }>;
+  isOnline?: boolean;
+  isAvailableNow?: boolean;
 }
 
 export default function DiscoverScreen() {
@@ -93,6 +95,9 @@ export default function DiscoverScreen() {
     }
     if (filters?.languages?.length === 1) {
       params.set("language", filters.languages[0]);
+    }
+    if (filters?.availableNowOnly) {
+      params.set("availableNowOnly", "true");
     }
     const qs = params.toString();
     if (qs) {
@@ -269,6 +274,8 @@ export default function DiscoverScreen() {
                 userGames={nextCandidate.userGames}
                 translateX={nextCardTranslateX}
                 isTopCard={false}
+                isOnline={nextCandidate.isOnline}
+                isAvailableNow={nextCandidate.isAvailableNow}
               />
             </View>
           ) : null}
@@ -289,6 +296,8 @@ export default function DiscoverScreen() {
                 userGames={currentCandidate.userGames}
                 translateX={translateX}
                 isTopCard={true}
+                isOnline={currentCandidate.isOnline}
+                isAvailableNow={currentCandidate.isAvailableNow}
               />
             </Animated.View>
           </GestureDetector>

@@ -57,9 +57,10 @@ export interface IStorage {
       gameId?: string;
       region?: string;
       language?: string;
+      availableNowOnly?: boolean;
     }
   ): Promise<
-    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[] })[]
+    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[]; isOnline: boolean; isAvailableNow: boolean })[]
   >;
 
   createSwipe(swipe: InsertSwipe): Promise<Swipe>;
@@ -187,9 +188,9 @@ export class DatabaseStorage implements IStorage {
 
   async getFeedCandidates(
     userId: string,
-    filters: { gameId?: string; region?: string; language?: string }
+    filters: { gameId?: string; region?: string; language?: string; availableNowOnly?: boolean }
   ): Promise<
-    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[] })[]
+    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[]; isOnline: boolean; isAvailableNow: boolean })[]
   > {
     const blockedIds = await this.getBlockedUsers(userId);
     const swipedUsers = await db
@@ -211,6 +212,9 @@ export class DatabaseStorage implements IStorage {
     }
 
     const candidateProfiles = await query.limit(50);
+    
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const now = new Date();
 
     const result = await Promise.all(
       candidateProfiles.map(async (profile) => {
@@ -223,11 +227,20 @@ export class DatabaseStorage implements IStorage {
         ) {
           return null;
         }
+        
+        const isOnline = profile.lastSeenAt ? profile.lastSeenAt > fiveMinutesAgo : false;
+        const isAvailableNow = (profile.isAvailableNow && profile.availableUntil && profile.availableUntil > now) || false;
+        
+        if (filters.availableNowOnly && !isAvailableNow) {
+          return null;
+        }
 
         return {
           ...profile,
           userGames: candidateGames,
           availability,
+          isOnline,
+          isAvailableNow,
         };
       })
     );
@@ -235,6 +248,8 @@ export class DatabaseStorage implements IStorage {
     return result.filter((r) => r !== null) as (Profile & {
       userGames: UserGame[];
       availability: AvailabilityWindow[];
+      isOnline: boolean;
+      isAvailableNow: boolean;
     })[];
   }
 
