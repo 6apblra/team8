@@ -125,7 +125,27 @@ Preferred communication style: Simple, everyday language.
 - **esbuild**: Server bundling for production
 - **tsx**: TypeScript execution for development
 
+### Real-Time Features (WebSocket)
+
+**Server**: WebSocket server attached at `/ws` path
+- Session-based authentication for connections
+- Auto-subscribes users to their match conversations
+- Broadcasts: new messages, typing indicators, read receipts, new matches
+
+**Client**: WebSocket manager (`client/lib/websocket.ts`)
+- Singleton pattern with auto-reconnection (3s retry)
+- Hooks: `useWebSocket()` for connection status, `useWebSocketMessages()` for subscribing
+- Connects when authenticated, disconnects on logout
+
+**Message Types**:
+- `new_message`: Real-time message delivery
+- `typing` / `stop_typing`: Typing indicators
+- `messages_read`: Read receipt notifications
+- `new_match`: Match creation notifications
+- `connected`: Connection acknowledgment with user's match IDs
+
 ### Environment Variables Required
 - `DATABASE_URL`: PostgreSQL connection string
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS`: CORS configuration
+- `SESSION_SECRET`: Express session encryption key

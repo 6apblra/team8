@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { games } from "@shared/schema";
 import bcrypt from "bcrypt";
+import { addMatchToConnections, broadcastNewMessage, broadcastTyping } from "./websocket";
 
 const SALT_ROUNDS = 10;
 
@@ -316,6 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const existing = await storage.getMatchByUsers(fromUserId, toUserId);
           if (!existing) {
             match = await storage.createMatch(fromUserId, toUserId);
+            addMatchToConnections(fromUserId, toUserId, match.id);
           }
         }
       }
@@ -427,6 +429,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const message = await storage.createMessage({ matchId, senderId, content });
+
+      const receiverId = match.user1Id === senderId ? match.user2Id : match.user1Id;
+      broadcastNewMessage(matchId, senderId, receiverId, message);
+
       return res.json(message);
     } catch (error) {
       console.error("Send message error:", error);

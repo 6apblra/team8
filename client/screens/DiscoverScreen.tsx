@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { View, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -13,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/query-client";
 import { ThemedText } from "@/components/ThemedText";
@@ -20,6 +22,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ActionButton } from "@/components/ActionButton";
 import { SwipeCard } from "@/components/SwipeCard";
 import { Colors, Spacing } from "@/constants/theme";
+import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -55,13 +58,59 @@ export default function DiscoverScreen() {
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [filters, setFilters] = useState<SavedFilters | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
+  useFocusEffect(
+    useCallback(() => {
+      const loadFilters = async () => {
+        try {
+          const stored = await AsyncStorage.getItem(FILTERS_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as SavedFilters;
+            setFilters(parsed);
+          } else {
+            setFilters(null);
+          }
+        } catch (error) {
+          console.error("Failed to load filters:", error);
+        }
+      };
+      loadFilters();
+    }, [])
+  );
+
+  const buildFeedQueryKey = useCallback(() => {
+    let path = "/api/feed";
+    const params = new URLSearchParams();
+    if (filters?.games?.length === 1) {
+      params.set("gameId", filters.games[0]);
+    }
+    if (filters?.regions?.length === 1) {
+      params.set("region", filters.regions[0]);
+    }
+    if (filters?.languages?.length === 1) {
+      params.set("language", filters.languages[0]);
+    }
+    const qs = params.toString();
+    if (qs) {
+      path += `?${qs}`;
+    }
+    return [path];
+  }, [filters]);
+
   const { data: candidates = [], isLoading, refetch } = useQuery<FeedCandidate[]>({
-    queryKey: ["/api/feed", user?.id],
+    queryKey: buildFeedQueryKey(),
     enabled: !!user?.id,
   });
+
+  useEffect(() => {
+    if (user?.id) {
+      setCurrentIndex(0);
+      refetch();
+    }
+  }, [filters, user?.id, refetch]);
 
   const { data: swipeStatus } = useQuery<{ dailyCount: number; limit: number; remaining: number }>({
     queryKey: ["/api/swipe-status", user?.id],

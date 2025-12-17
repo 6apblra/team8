@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -12,7 +12,15 @@ import { SelectableChip } from "@/components/SelectableChip";
 import { Colors, Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
 
-const FILTERS_KEY = "@teamup_filters";
+export const FILTERS_KEY = "@teamup_filters";
+
+export interface SavedFilters {
+  games: string[];
+  regions: string[];
+  languages: string[];
+  micRequired: boolean;
+  playstyles: string[];
+}
 
 export default function FiltersScreen() {
   const insets = useSafeAreaInsets();
@@ -25,6 +33,28 @@ export default function FiltersScreen() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [micRequired, setMicRequired] = useState(false);
   const [selectedPlaystyles, setSelectedPlaystyles] = useState<string[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(FILTERS_KEY);
+        if (stored) {
+          const filters: SavedFilters = JSON.parse(stored);
+          setSelectedGames(filters.games || []);
+          setSelectedRegions(filters.regions || []);
+          setSelectedLanguages(filters.languages || []);
+          setMicRequired(filters.micRequired || false);
+          setSelectedPlaystyles(filters.playstyles || []);
+        }
+      } catch (error) {
+        console.error("Failed to load filters:", error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+    loadFilters();
+  }, []);
 
   const toggleGame = (id: string) => {
     setSelectedGames((prev) =>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { wsManager } from '@/lib/websocket';
 
 interface User {
   id: string;
@@ -49,6 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkSession();
   }, []);
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      wsManager.connect();
+    } else if (!isLoading) {
+      wsManager.disconnect();
+    }
+  }, [user, isLoading]);
 
   const checkSession = async () => {
     try {

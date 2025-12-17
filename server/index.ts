@@ -4,11 +4,13 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { registerRoutes } from "./routes";
+import { setupWebSocket } from "./websocket";
 import * as fs from "fs";
 import * as path from "path";
 
 const app = express();
 const log = console.log;
+let sessionMiddleware: express.RequestHandler;
 
 declare module "http" {
   interface IncomingMessage {
@@ -59,24 +61,24 @@ function setupCors(app: express.Application) {
 function setupSession(app: express.Application) {
   const PgSession = connectPgSimple(session);
 
-  app.use(
-    session({
-      store: new PgSession({
-        pool: pool,
-        tableName: "session",
-        createTableIfMissing: true,
-      }),
-      secret: process.env.SESSION_SECRET || "teamup-secret-key-change-in-production",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === "production",
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: "lax",
-      },
-    })
-  );
+  sessionMiddleware = session({
+    store: new PgSession({
+      pool: pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || "teamup-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: "lax",
+    },
+  });
+
+  app.use(sessionMiddleware);
 }
 
 function setupBodyParsing(app: express.Application) {
@@ -257,6 +259,9 @@ function setupErrorHandler(app: express.Application) {
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
+
+  setupWebSocket(server, sessionMiddleware);
+  log("WebSocket server attached to /ws");
 
   setupErrorHandler(app);
 

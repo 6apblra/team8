@@ -1,8 +1,6 @@
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { HeaderButton } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import LoginScreen from "@/screens/LoginScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
@@ -66,18 +64,9 @@ function RootNavigator() {
           <Stack.Screen
             name="Chat"
             component={ChatScreen}
-            options={({ route, navigation }) => ({
+            options={({ route }) => ({
               headerTitle: route.params.nickname,
               presentation: "card",
-              headerRight: () => (
-                <HeaderButton
-                  onPress={() => {}}
-                  pressColor="transparent"
-                  pressOpacity={0.7}
-                >
-                  <Feather name="more-vertical" size={22} color={theme.text} />
-                </HeaderButton>
-              ),
             })}
           />
           <Stack.Screen
