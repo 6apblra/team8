@@ -178,3 +178,38 @@ export function broadcastTyping(matchId: string, senderId: string, isTyping: boo
     userId: senderId,
   }, senderId);
 }
+
+export function broadcastPresenceChange(userId: string, isAvailableNow: boolean) {
+  const conn = connections.get(userId);
+  if (!conn) return;
+  
+  for (const matchId of conn.matchIds) {
+    broadcast(matchId, {
+      type: "presence_change",
+      userId,
+      isAvailableNow,
+      isOnline: true,
+    }, userId);
+  }
+}
+
+export function updatePresence(userId: string, isOnline: boolean) {
+  const conn = connections.get(userId);
+  if (!conn) return;
+  
+  for (const matchId of conn.matchIds) {
+    broadcast(matchId, {
+      type: "presence_change",
+      userId,
+      isOnline,
+    }, userId);
+  }
+}
+
+export function isUserConnected(userId: string): boolean {
+  return connections.has(userId);
+}
+
+export function getConnectedUserIds(): string[] {
+  return Array.from(connections.keys());
+}

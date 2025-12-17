@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { games } from "@shared/schema";
 import bcrypt from "bcrypt";
-import { addMatchToConnections, broadcastNewMessage, broadcastTyping } from "./websocket";
+import { addMatchToConnections, broadcastNewMessage, broadcastTyping, broadcastPresenceChange, updatePresence } from "./websocket";
 
 const SALT_ROUNDS = 10;
 
@@ -471,6 +471,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Block error:", error);
       return res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
+  app.post("/api/heartbeat", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      await storage.updateLastSeen(userId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Heartbeat error:", error);
+      return res.status(500).json({ error: "Heartbeat failed" });
+    }
+  });
+
+  app.post("/api/available-now", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { durationMinutes = 60 } = req.body;
+      
+      const duration = Math.min(Math.max(durationMinutes, 15), 240);
+      await storage.setAvailableNow(userId, duration);
+      
+      broadcastPresenceChange(userId, true);
+      
+      return res.json({ success: true, availableUntil: new Date(Date.now() + duration * 60 * 1000) });
+    } catch (error) {
+      console.error("Set available error:", error);
+      return res.status(500).json({ error: "Failed to set availability" });
+    }
+  });
+
+  app.delete("/api/available-now", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      await storage.clearAvailableNow(userId);
+      
+      broadcastPresenceChange(userId, false);
+      
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Clear available error:", error);
+      return res.status(500).json({ error: "Failed to clear availability" });
+    }
+  });
+
+  app.get("/api/activity-status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { userIds } = req.query;
+      
+      if (!userIds || typeof userIds !== "string") {
+        return res.status(400).json({ error: "userIds query param required" });
+      }
+      
+      const ids = userIds.split(",").filter(Boolean);
+      const statuses = await storage.getOnlineUsers(ids);
+      
+      return res.json(statuses);
+    } catch (error) {
+      console.error("Activity status error:", error);
+      return res.status(500).json({ error: "Failed to get activity status" });
     }
   });
 

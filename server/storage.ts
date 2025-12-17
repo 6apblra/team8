@@ -91,6 +91,11 @@ export interface IStorage {
   getDailySwipeCount(userId: string): Promise<number>;
   incrementDailySwipeCount(userId: string): Promise<number>;
   getSwipeLimit(userId: string): Promise<number>;
+
+  updateLastSeen(userId: string): Promise<void>;
+  setAvailableNow(userId: string, durationMinutes: number): Promise<void>;
+  clearAvailableNow(userId: string): Promise<void>;
+  getOnlineUsers(userIds: string[]): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -421,6 +426,62 @@ export class DatabaseStorage implements IStorage {
   async getSwipeLimit(userId: string): Promise<number> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     return user?.isPremium ? 999 : 50;
+  }
+
+  async updateLastSeen(userId: string): Promise<void> {
+    await db
+      .update(profiles)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(profiles.userId, userId));
+  }
+
+  async setAvailableNow(userId: string, durationMinutes: number): Promise<void> {
+    const availableUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+    await db
+      .update(profiles)
+      .set({ 
+        isAvailableNow: true, 
+        availableUntil,
+        lastSeenAt: new Date()
+      })
+      .where(eq(profiles.userId, userId));
+  }
+
+  async clearAvailableNow(userId: string): Promise<void> {
+    await db
+      .update(profiles)
+      .set({ 
+        isAvailableNow: false, 
+        availableUntil: null 
+      })
+      .where(eq(profiles.userId, userId));
+  }
+
+  async getOnlineUsers(userIds: string[]): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]> {
+    if (userIds.length === 0) return [];
+    
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const now = new Date();
+    
+    const userProfiles = await db
+      .select({
+        userId: profiles.userId,
+        lastSeenAt: profiles.lastSeenAt,
+        isAvailableNow: profiles.isAvailableNow,
+        availableUntil: profiles.availableUntil,
+      })
+      .from(profiles)
+      .where(
+        userIds.length === 1
+          ? eq(profiles.userId, userIds[0])
+          : sql`${profiles.userId} = ANY(${userIds})`
+      );
+    
+    return userProfiles.map((p) => ({
+      userId: p.userId,
+      isOnline: p.lastSeenAt ? p.lastSeenAt > fiveMinutesAgo : false,
+      isAvailableNow: (p.isAvailableNow && p.availableUntil && p.availableUntil > now) || false,
+    }));
   }
 }
 

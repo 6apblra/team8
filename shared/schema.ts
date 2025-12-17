@@ -43,6 +43,9 @@ export const profiles = pgTable("profiles", {
   steamId: text("steam_id"),
   riotId: text("riot_id"),
   toxicityRating: integer("toxicity_rating").default(0),
+  lastSeenAt: timestamp("last_seen_at"),
+  isAvailableNow: boolean("is_available_now").default(false),
+  availableUntil: timestamp("available_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
