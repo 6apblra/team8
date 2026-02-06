@@ -9,7 +9,8 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius, GameColors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, RANKS, ROLES, PLAYSTYLES, PLATFORMS, REGIONS, LANGUAGES, DAYS_OF_WEEK, TIME_SLOTS } from "@/lib/game-data";
 
 const STEPS = ["Profile", "Games", "Schedule", "Finish"];
@@ -17,7 +18,7 @@ const STEPS = ["Profile", "Games", "Schedule", "Finish"];
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { user, setProfile } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);

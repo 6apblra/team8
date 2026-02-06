@@ -45,7 +45,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       {__DEV__ ? (
         <Pressable
           onPress={() => setIsModalVisible(true)}
-          style={({ pressed }) => [
+          style={({ pressed }: { pressed: boolean }) => [
             styles.topButton,
             {
               backgroundColor: theme.backgroundDefault,
@@ -68,7 +68,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
         <Pressable
           onPress={handleRestart}
-          style={({ pressed }) => [
+          style={({ pressed }: { pressed: boolean }) => [
             styles.button,
             {
               backgroundColor: theme.link,
@@ -101,7 +101,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                 </ThemedText>
                 <Pressable
                   onPress={() => setIsModalVisible(false)}
-                  style={({ pressed }) => [
+                  style={({ pressed }: { pressed: boolean }) => [
                     styles.closeButton,
                     { opacity: pressed ? 0.6 : 1 },
                   ]}

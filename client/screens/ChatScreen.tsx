@@ -25,7 +25,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { MessageBubble } from "@/components/MessageBubble";
 import { QuickMessageChip } from "@/components/QuickMessageChip";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { QUICK_MESSAGES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -47,7 +48,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
   const flatListRef = useRef<FlatList>(null);
 
@@ -349,7 +350,7 @@ export default function ChatScreen() {
             <Pressable
               onPress={handleSend}
               disabled={!message.trim() || isSending}
-              style={({ pressed }) => [
+              style={({ pressed }: { pressed: boolean }) => [
                 styles.sendButton,
                 {
                   backgroundColor: message.trim() ? theme.primary : theme.backgroundSecondary,

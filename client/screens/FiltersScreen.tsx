@@ -9,7 +9,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
-import { Colors, Spacing, BorderRadius, GameColors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
 
 export const FILTERS_KEY = "@teamup_filters";
@@ -27,7 +28,7 @@ export default function FiltersScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);

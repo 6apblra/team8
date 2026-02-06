@@ -1,7 +1,8 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface MessageBubbleProps {
   content: string;
@@ -10,7 +11,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ content, isMine, timestamp }: MessageBubbleProps) {
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const formatTime = (date: Date | undefined) => {
     if (!date) return "";

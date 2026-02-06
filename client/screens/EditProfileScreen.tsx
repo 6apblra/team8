@@ -12,7 +12,8 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { REGIONS, LANGUAGES } from "@/lib/game-data";
 
 export default function EditProfileScreen() {
@@ -20,7 +21,7 @@ export default function EditProfileScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
   const { user, profile, setProfile } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
 
   const [nickname, setNickname] = useState(profile?.nickname || "");

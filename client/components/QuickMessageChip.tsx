@@ -1,7 +1,8 @@
 import React from "react";
 import { StyleSheet, Pressable } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface QuickMessageChipProps {
   message: string;
@@ -9,12 +10,12 @@ interface QuickMessageChipProps {
 }
 
 export function QuickMessageChip({ message, onPress }: QuickMessageChipProps) {
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed }: { pressed: boolean }) => [
         styles.chip,
         { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
       ]}

@@ -9,7 +9,7 @@ import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import MatchesStackNavigator from "@/navigation/MatchesStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 export type MainTabParamList = {
@@ -22,12 +22,12 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function FloatingFilterButton() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   return (
     <Pressable
       onPress={() => navigation.navigate("Filters")}
-      style={({ pressed }) => [
+      style={({ pressed }: { pressed: boolean }) => [
         styles.fabContainer,
         { opacity: pressed ? 0.8 : 1 },
       ]}

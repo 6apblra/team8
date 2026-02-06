@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import HomeScreen from "@/screens/HomeScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export type HomeStackParamList = {
   Home: undefined;
@@ -15,7 +15,7 @@ const Stack = createNativeStackNavigator<HomeStackParamList>();
 
 export default function HomeStackNavigator() {
   const screenOptions = useScreenOptions();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>

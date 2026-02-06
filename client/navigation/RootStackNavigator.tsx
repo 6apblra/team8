@@ -9,7 +9,7 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import FiltersScreen from "@/screens/FiltersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
-import { Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -30,7 +30,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function RootNavigator() {
   const screenOptions = useScreenOptions();
   const { isAuthenticated, hasProfile, isLoading } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   if (isLoading) {
     return (

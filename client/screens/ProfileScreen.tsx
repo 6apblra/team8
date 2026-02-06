@@ -15,7 +15,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { GameBadge } from "@/components/GameBadge";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -52,7 +53,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile, logout } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
   const [isAvailableNow, setIsAvailableNow] = useState(false);
   const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
@@ -149,7 +150,7 @@ export default function ProfileScreen() {
   const regionLabel = REGIONS.find((r) => r.id === displayProfile?.region)?.label || displayProfile?.region;
   const languageLabels =
     displayProfile?.languages
-      ?.map((l) => LANGUAGES.find((lang) => lang.id === l)?.label || l)
+      ?.map((l: string) => LANGUAGES.find((lang) => lang.id === l)?.label || l)
       .join(", ") || "Not set";
 
   return (
@@ -247,7 +248,7 @@ export default function ProfileScreen() {
                   <ThemedText style={[styles.settingLabel, { flex: 0 }]}>Ready to Play</ThemedText>
                 </View>
                 <ThemedText style={styles.availableDescription}>
-                  {isAvailableNow 
+                  {isAvailableNow
                     ? "Others can see you're looking for teammates now"
                     : "Let others know you're available to play"
                   }
@@ -280,7 +281,7 @@ export default function ProfileScreen() {
           <Card elevation={1}>
             <Pressable
               onPress={handleEditProfile}
-              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <Feather name="edit" size={18} color={theme.text} />
               <ThemedText style={styles.settingLabel}>Edit Profile</ThemedText>
@@ -289,7 +290,7 @@ export default function ProfileScreen() {
             <View style={styles.settingDivider} />
             <Pressable
               onPress={() => navigation.navigate("Filters")}
-              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <Feather name="sliders" size={18} color={theme.text} />
               <ThemedText style={styles.settingLabel}>Filters</ThemedText>
@@ -298,7 +299,7 @@ export default function ProfileScreen() {
             <View style={styles.settingDivider} />
             <Pressable
               onPress={handleLogout}
-              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <Feather name="log-out" size={18} color={theme.danger} />
               <ThemedText style={[styles.settingLabel, { color: theme.danger }]}>

@@ -8,12 +8,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { login, register } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");

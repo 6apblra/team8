@@ -21,6 +21,12 @@ const GAME_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   lol: "award",
 };
 
+// Маппинг полных имен игр на их id
+const GAME_NAME_TO_ID: Record<string, string> = {
+  "leagueoflegends": "lol",
+  "league of legends": "lol",
+};
+
 export function GameBadge({
   game,
   rank,
@@ -29,7 +35,10 @@ export function GameBadge({
   onPress,
   selected,
 }: GameBadgeProps) {
-  const gameKey = game.toLowerCase().replace(/\s/g, "").replace("2", "2");
+  // Нормализуем имя игры: убираем пробелы, приводим к нижнему регистру
+  const normalized = game.toLowerCase().replace(/\s/g, "");
+  // Проверяем маппинг для полных имен, иначе используем как есть
+  const gameKey = GAME_NAME_TO_ID[normalized] || normalized;
   const color = GameColors[gameKey] || "#00D9FF";
   const icon = GAME_ICONS[gameKey] || "circle";
 
@@ -76,7 +85,10 @@ export function GameBadge({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }: { pressed: boolean }) => [{ opacity: pressed ? 0.7 : 1 }]}
+      >
         {content}
       </Pressable>
     );

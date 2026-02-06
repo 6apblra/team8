@@ -10,7 +10,7 @@ import * as path from "path";
 
 const app = express();
 const log = console.log;
-let sessionMiddleware: express.RequestHandler;
+let sessionMiddleware!: express.RequestHandler;
 
 declare module "http" {
   interface IncomingMessage {
@@ -265,15 +265,8 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+  const port = parseInt(process.env.PORT || "5001", 10);
+  server.listen(port, "0.0.0.0", () => {
+    log(`express server serving on port ${port}`);
+  });
 })();

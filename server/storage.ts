@@ -201,18 +201,20 @@ export class DatabaseStorage implements IStorage {
 
     const excludeIds = [...blockedIds, ...swipedIds, userId];
 
-    let query = db.select().from(profiles).where(
-      excludeIds.length > 0
-        ? notInArray(profiles.userId, excludeIds)
-        : ne(profiles.userId, userId)
-    );
+    const baseCondition = excludeIds.length > 0
+      ? notInArray(profiles.userId, excludeIds)
+      : ne(profiles.userId, userId);
 
-    if (filters.region) {
-      query = query.where(eq(profiles.region, filters.region)) as typeof query;
-    }
+    const whereCondition = filters.region
+      ? and(baseCondition, eq(profiles.region, filters.region))
+      : baseCondition;
 
-    const candidateProfiles = await query.limit(50);
-    
+    const candidateProfiles = await db
+      .select()
+      .from(profiles)
+      .where(whereCondition!)
+      .limit(50);
+
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const now = new Date();
 
@@ -227,10 +229,10 @@ export class DatabaseStorage implements IStorage {
         ) {
           return null;
         }
-        
+
         const isOnline = profile.lastSeenAt ? profile.lastSeenAt > fiveMinutesAgo : false;
         const isAvailableNow = (profile.isAvailableNow && profile.availableUntil && profile.availableUntil > now) || false;
-        
+
         if (filters.availableNowOnly && !isAvailableNow) {
           return null;
         }
@@ -454,8 +456,8 @@ export class DatabaseStorage implements IStorage {
     const availableUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
     await db
       .update(profiles)
-      .set({ 
-        isAvailableNow: true, 
+      .set({
+        isAvailableNow: true,
         availableUntil,
         lastSeenAt: new Date()
       })
@@ -465,19 +467,19 @@ export class DatabaseStorage implements IStorage {
   async clearAvailableNow(userId: string): Promise<void> {
     await db
       .update(profiles)
-      .set({ 
-        isAvailableNow: false, 
-        availableUntil: null 
+      .set({
+        isAvailableNow: false,
+        availableUntil: null
       })
       .where(eq(profiles.userId, userId));
   }
 
   async getOnlineUsers(userIds: string[]): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]> {
     if (userIds.length === 0) return [];
-    
+
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const now = new Date();
-    
+
     const userProfiles = await db
       .select({
         userId: profiles.userId,
@@ -491,7 +493,7 @@ export class DatabaseStorage implements IStorage {
           ? eq(profiles.userId, userIds[0])
           : sql`${profiles.userId} = ANY(${userIds})`
       );
-    
+
     return userProfiles.map((p) => ({
       userId: p.userId,
       isOnline: p.lastSeenAt ? p.lastSeenAt > fiveMinutesAgo : false,

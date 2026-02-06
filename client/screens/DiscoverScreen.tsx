@@ -21,7 +21,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ActionButton } from "@/components/ActionButton";
 import { SwipeCard } from "@/components/SwipeCard";
-import { Colors, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing } from "@/constants/theme";
 import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -56,7 +57,7 @@ export default function DiscoverScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);

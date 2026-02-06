@@ -28,9 +28,16 @@ const springConfig: WithSpringConfig = {
   energyThreshold: 0.001,
 };
 
+interface ThemeColors {
+  backgroundDefault: string;
+  backgroundSecondary: string;
+  backgroundTertiary: string;
+  backgroundRoot: string;
+}
+
 const getBackgroundColorForElevation = (
   elevation: number,
-  theme: any,
+  theme: ThemeColors,
 ): string => {
   switch (elevation) {
     case 1:

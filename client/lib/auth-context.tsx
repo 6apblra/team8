@@ -1,28 +1,29 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiRequest, getApiUrl } from '@/lib/query-client';
+import { api, getToken, removeToken } from '@/lib/api-client';
 import { wsManager } from '@/lib/websocket';
 
 interface User {
   id: string;
   email: string;
-  isPremium?: boolean;
 }
 
 interface Profile {
   id: string;
-  userId: string;
+  user_id: string;
   nickname: string;
+  avatar_url?: string | null;
   avatarUrl?: string | null;
-  age?: number | null;
   bio?: string | null;
   region: string;
-  timezone?: string | null;
+  language?: string | null;
   languages?: string[];
+  platforms: string[];
+  playstyle?: string | null;
+  mic: boolean;
   micEnabled?: boolean;
   discordTag?: string | null;
-  steamId?: string | null;
-  riotId?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
@@ -40,8 +41,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const AUTH_STORAGE_KEY = '@teamup_auth';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfileState] = useState<Profile | null>(null);
@@ -53,22 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user && !isLoading) {
-      wsManager.connect();
-      
-      const sendHeartbeat = async () => {
-        try {
-          const baseUrl = getApiUrl();
-          const url = new URL('/api/heartbeat', baseUrl);
-          await fetch(url, { method: 'POST', credentials: 'include' });
-        } catch (error) {
-          // Silent fail for heartbeat
+      getToken().then((token) => {
+        if (token) {
+          wsManager.connect(token);
         }
-      };
-      
-      sendHeartbeat();
-      const heartbeatInterval = setInterval(sendHeartbeat, 60000);
-      
-      return () => clearInterval(heartbeatInterval);
+      });
     } else if (!isLoading) {
       wsManager.disconnect();
     }
@@ -76,165 +64,92 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkSession = async () => {
     try {
-      const baseUrl = getApiUrl();
-      const url = new URL('/api/auth/me', baseUrl);
-      const response = await fetch(url, { credentials: 'include' });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        setProfileState(data.profile || null);
-        await saveLocalCache(data.user, data.profile || null);
-      } else {
-        const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        if (stored) {
-          await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-        }
+      const token = await getToken();
+      if (!token) {
         setUser(null);
         setProfileState(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const profileData = await api.getMe() as Profile | null;
+      if (profileData) {
+        setUser({ id: profileData.user_id, email: '' }); // Email not in profile response
+        setProfileState(profileData);
       }
     } catch (error) {
       console.error('Session check failed:', error);
-      const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (stored) {
-        const { user: storedUser, profile: storedProfile } = JSON.parse(stored);
-        setUser(storedUser);
-        setProfileState(storedProfile);
-      }
+      await removeToken();
+      setUser(null);
+      setProfileState(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveLocalCache = async (userData: User | null, profileData: Profile | null) => {
-    try {
-      if (userData) {
-        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-          user: userData,
-          profile: profileData
-        }));
-      } else {
-        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-      }
-    } catch (error) {
-      console.error('Failed to save auth cache:', error);
-    }
-  };
-
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const baseUrl = getApiUrl();
-      const url = new URL('/api/auth/login', baseUrl);
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include',
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Login failed' };
-      }
-
-      setUser(data.user);
-      setProfileState(data.profile || null);
-      await saveLocalCache(data.user, data.profile || null);
+      await api.login(email, password);
+      await refreshProfile();
       return { success: true };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Connection error. Please try again.' };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
   const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const baseUrl = getApiUrl();
-      const url = new URL('/api/auth/register', baseUrl);
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include',
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Registration failed' };
-      }
-
-      setUser(data.user);
-      await saveLocalCache(data.user, null);
+      await api.register(email, password);
+      // After registration, user needs to create profile
       return { success: true };
-    } catch (error) {
-      console.error('Register error:', error);
-      return { success: false, error: 'Connection error. Please try again.' };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Registration failed' };
     }
   };
 
   const logout = async () => {
-    try {
-      const baseUrl = getApiUrl();
-      const url = new URL('/api/auth/logout', baseUrl);
-      await fetch(url, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await removeToken();
+    wsManager.disconnect();
     setUser(null);
     setProfileState(null);
-    await saveLocalCache(null, null);
   };
 
   const setProfile = (newProfile: Profile) => {
     setProfileState(newProfile);
-    if (user) {
-      saveLocalCache(user, newProfile);
-    }
   };
 
   const refreshProfile = async () => {
-    if (!user) return;
     try {
-      const baseUrl = getApiUrl();
-      const url = new URL(`/api/profile/${user.id}`, baseUrl);
-      const response = await fetch(url, { credentials: 'include' });
-      if (response.ok) {
-        const data = await response.json();
-        setProfileState(data.profile);
-        await saveLocalCache(user, data.profile);
+      const profileData = await api.getMe() as Profile | null;
+      if (profileData) {
+        setUser({ id: profileData.user_id, email: '' });
+        setProfileState(profileData);
       }
     } catch (error) {
       console.error('Failed to refresh profile:', error);
     }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        isLoading,
-        isAuthenticated: !!user,
-        hasProfile: !!profile,
-        login,
-        register,
-        logout,
-        setProfile,
-        refreshProfile,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    user,
+    profile,
+    isLoading,
+    isAuthenticated: !!user,
+    hasProfile: !!profile,
+    login,
+    register,
+    logout,
+    setProfile,
+    refreshProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }

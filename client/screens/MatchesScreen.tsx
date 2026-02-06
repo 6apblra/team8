@@ -11,7 +11,8 @@ import { useAuth } from "@/lib/auth-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { MatchCard } from "@/components/MatchCard";
-import { Colors, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 interface MatchData {
@@ -40,7 +41,7 @@ export default function MatchesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const { data: matches = [], isLoading, refetch } = useQuery<MatchData[]>({
     queryKey: ["/api/matches", user?.id],

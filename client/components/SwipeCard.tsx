@@ -9,7 +9,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { GameBadge } from "@/components/GameBadge";
-import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
@@ -55,7 +56,7 @@ export function SwipeCard({
   isOnline = false,
   isAvailableNow = false,
 }: SwipeCardProps) {
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const rotateStyle = useAnimatedStyle(() => {
     const rotate = interpolate(

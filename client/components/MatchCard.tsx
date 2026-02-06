@@ -3,7 +3,8 @@ import { View, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
-import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface MatchCardProps {
   nickname: string;
@@ -29,7 +30,7 @@ export function MatchCard({
   gameIcon,
   onPress,
 }: MatchCardProps) {
-  const theme = Colors.dark;
+  const { theme } = useTheme();
 
   const formatTime = (date: Date | null | undefined) => {
     if (!date) return "";
@@ -50,7 +51,7 @@ export function MatchCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed }: { pressed: boolean }) => [
         styles.container,
         { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
       ]}

@@ -7,7 +7,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { BorderRadius, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 interface ActionButtonProps {
   icon: keyof typeof Feather.glyphMap;
@@ -28,6 +28,7 @@ export function ActionButton({
   onPress,
   style,
 }: ActionButtonProps) {
+  const { theme } = useTheme();
   const scale = useSharedValue(1);
 
   const sizeConfig = {
@@ -66,7 +67,7 @@ export function ActionButton({
           width: buttonSize,
           height: buttonSize,
           borderRadius: buttonSize / 2,
-          backgroundColor: backgroundColor || Colors.dark.backgroundSecondary,
+          backgroundColor: backgroundColor || theme.backgroundSecondary,
           borderColor: color,
         },
         animatedStyle,

@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { getApiUrl } from "./query-client";
+import { useEffect, useState } from "react";
+import { getToken } from "./api-client";
+
+// TODO: Update this to your backend URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
 
 interface WebSocketMessage {
   type: string;
@@ -15,8 +18,18 @@ class WebSocketManager {
   private isConnecting = false;
   private shouldReconnect = true;
 
-  connect() {
+  async connect(token?: string | null) {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+      return;
+    }
+
+    // Get token if not provided
+    if (!token) {
+      token = await getToken();
+    }
+
+    if (!token) {
+      console.warn("No token available for WebSocket connection");
       return;
     }
 
@@ -24,8 +37,7 @@ class WebSocketManager {
     this.shouldReconnect = true;
 
     try {
-      const baseUrl = getApiUrl();
-      const wsUrl = baseUrl.replace(/^http/, "ws").replace(/\/$/, "") + "/ws";
+      const wsUrl = `${API_BASE_URL.replace(/^http/, "ws")}/ws?token=${token}`;
 
       this.ws = new WebSocket(wsUrl);
 
@@ -53,8 +65,8 @@ class WebSocketManager {
         }
       };
 
-      this.ws.onerror = () => {
-        // Silently handle WebSocket errors - reconnection will happen automatically
+      this.ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
         this.isConnecting = false;
       };
     } catch (error) {
@@ -64,14 +76,14 @@ class WebSocketManager {
     }
   }
 
-  private scheduleReconnect() {
+  private async scheduleReconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }
 
-    this.reconnectTimeout = setTimeout(() => {
+    this.reconnectTimeout = setTimeout(async () => {
       if (this.shouldReconnect) {
-        this.connect();
+        await this.connect();
       }
     }, 3000);
   }

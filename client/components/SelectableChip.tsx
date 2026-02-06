@@ -2,7 +2,8 @@ import React from "react";
 import { StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
-import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface SelectableChipProps {
   label: string;
@@ -19,13 +20,13 @@ export function SelectableChip({
   icon,
   color,
 }: SelectableChipProps) {
-  const theme = Colors.dark;
+  const { theme } = useTheme();
   const activeColor = color || theme.primary;
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed }: { pressed: boolean }) => [
         styles.chip,
         {
           backgroundColor: selected ? activeColor : theme.backgroundSecondary,

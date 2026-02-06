@@ -44,17 +44,17 @@ export function setupWebSocket(server: Server, sessionParser: any) {
       userId = session.userId;
       console.log(`WebSocket connected: ${userId}`);
 
-      const userMatches = await storage.getMatches(userId);
+      const userMatches = await storage.getMatches(userId!);
       const matchIds = new Set(userMatches.map((m) => m.id));
 
-      const connection: UserConnection = { userId, ws, matchIds };
-      connections.set(userId, connection);
+      const connection: UserConnection = { userId: userId!, ws, matchIds };
+      connections.set(userId!, connection);
 
       for (const matchId of matchIds) {
         if (!matchSubscribers.has(matchId)) {
           matchSubscribers.set(matchId, new Set());
         }
-        matchSubscribers.get(matchId)!.add(userId);
+        matchSubscribers.get(matchId)!.add(userId!);
       }
 
       ws.send(JSON.stringify({ type: "connected", userId, matchIds: Array.from(matchIds) }));
@@ -82,7 +82,7 @@ export function setupWebSocket(server: Server, sessionParser: any) {
         }
       });
 
-      ws.on("error", (error) => {
+      ws.on("error", (error: Error) => {
         console.error(`WebSocket error for ${userId}:`, error);
       });
     });
@@ -182,7 +182,7 @@ export function broadcastTyping(matchId: string, senderId: string, isTyping: boo
 export function broadcastPresenceChange(userId: string, isAvailableNow: boolean) {
   const conn = connections.get(userId);
   if (!conn) return;
-  
+
   for (const matchId of conn.matchIds) {
     broadcast(matchId, {
       type: "presence_change",
@@ -196,7 +196,7 @@ export function broadcastPresenceChange(userId: string, isAvailableNow: boolean)
 export function updatePresence(userId: string, isOnline: boolean) {
   const conn = connections.get(userId);
   if (!conn) return;
-  
+
   for (const matchId of conn.matchIds) {
     broadcast(matchId, {
       type: "presence_change",
