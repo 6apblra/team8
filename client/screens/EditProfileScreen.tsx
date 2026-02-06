@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, TextInput, Pressable, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import { useAuth } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/query-client";
+import { useAuth, type Profile } from "@/lib/auth-context";
+import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
@@ -28,29 +35,38 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState(profile?.bio || "");
   const [region, setRegion] = useState(profile?.region || "");
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(
-    (profile?.languages as string[]) || ["en"]
+    (profile?.languages as string[]) || ["en"],
   );
   const [micEnabled, setMicEnabled] = useState(profile?.micEnabled ?? true);
   const [discordTag, setDiscordTag] = useState(profile?.discordTag || "");
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("PUT", `/api/profile/${user?.id}`, data);
-      return response.json();
+      const method = profile ? "PUT" : "POST";
+      const endpoint = profile ? `/profile/${user?.id}` : "/profile";
+
+      const response = await apiRequest<Profile>(method, endpoint, data);
+      // apiRequest returns parsed JSON if content-type is json, no need to call .json() again
+      return response;
     },
     onSuccess: (updatedProfile) => {
       setProfile(updatedProfile);
+      // Invalidate both potential queries
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       navigation.goBack();
     },
     onError: (error) => {
+      console.error("Profile update error:", error);
       Alert.alert("Error", "Failed to update profile. Please try again.");
     },
   });
 
   const toggleLanguage = (langId: string) => {
     setSelectedLanguages((prev) =>
-      prev.includes(langId) ? prev.filter((l) => l !== langId) : [...prev, langId]
+      prev.includes(langId)
+        ? prev.filter((l) => l !== langId)
+        : [...prev, langId],
     );
   };
 
@@ -134,7 +150,11 @@ export default function EditProfileScreen() {
               onPress={() => setMicEnabled(!micEnabled)}
               style={[
                 styles.toggle,
-                { backgroundColor: micEnabled ? theme.success : theme.backgroundSecondary },
+                {
+                  backgroundColor: micEnabled
+                    ? theme.success
+                    : theme.backgroundSecondary,
+                },
               ]}
             >
               <View
@@ -171,8 +191,16 @@ export default function EditProfileScreen() {
           />
         </View>
 
-        <Button onPress={handleSave} disabled={updateMutation.isPending} style={styles.saveButton}>
-          {updateMutation.isPending ? <ActivityIndicator color="#FFFFFF" /> : "Save Changes"}
+        <Button
+          onPress={handleSave}
+          disabled={updateMutation.isPending}
+          style={styles.saveButton}
+        >
+          {updateMutation.isPending ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            "Save Changes"
+          )}
         </Button>
       </KeyboardAwareScrollViewCompat>
     </ThemedView>

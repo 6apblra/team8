@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/lib/api-client";
 import { wsManager, useWebSocketMessages } from "@/lib/websocket";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -43,7 +43,8 @@ interface Message {
 
 export default function ChatScreen() {
   const route = useRoute<ChatScreenRouteProp>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { matchId, otherUserId, nickname } = route.params;
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -73,79 +74,94 @@ export default function ChatScreen() {
 
   const allMessages = localMessages;
 
-  const handleWebSocketMessage = useCallback((msg: any) => {
-    if (msg.matchId !== matchId) return;
+  const handleWebSocketMessage = useCallback(
+    (msg: any) => {
+      if (msg.matchId !== matchId) return;
 
-    switch (msg.type) {
-      case "new_message":
-        setLocalMessages((prev) => {
-          const exists = prev.some((m) => m.id === msg.message.id);
-          if (exists) return prev;
-          return [...prev, msg.message];
-        });
-        if (msg.message.senderId !== user?.id) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-        break;
-      case "typing":
-        if (msg.userId !== user?.id) {
-          setIsTyping(true);
-          setTimeout(() => setIsTyping(false), 3000);
-        }
-        break;
-      case "stop_typing":
-        if (msg.userId !== user?.id) {
-          setIsTyping(false);
-        }
-        break;
-    }
-  }, [matchId, user?.id]);
+      switch (msg.type) {
+        case "new_message":
+          setLocalMessages((prev) => {
+            const exists = prev.some((m) => m.id === msg.message.id);
+            if (exists) return prev;
+            return [...prev, msg.message];
+          });
+          if (msg.message.senderId !== user?.id) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          break;
+        case "typing":
+          if (msg.userId !== user?.id) {
+            setIsTyping(true);
+            setTimeout(() => setIsTyping(false), 3000);
+          }
+          break;
+        case "stop_typing":
+          if (msg.userId !== user?.id) {
+            setIsTyping(false);
+          }
+          break;
+      }
+    },
+    [matchId, user?.id],
+  );
 
   useWebSocketMessages(handleWebSocketMessage);
 
-  const sendTypingIndicator = useCallback((typing: boolean) => {
-    wsManager.send({
-      type: typing ? "typing" : "stop_typing",
-      matchId,
-      senderId: user?.id || "",
-    });
-  }, [matchId, user?.id]);
-
-  const handleTextChange = useCallback((text: string) => {
-    setMessage(text);
-
-    if (text.length > 0) {
-      sendTypingIndicator(true);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-        sendTypingIndicator(false);
-      }, 2000);
-    } else {
-      sendTypingIndicator(false);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    }
-  }, [sendTypingIndicator]);
-
-  const handleReport = useCallback(async (reason: string) => {
-    try {
-      await apiRequest("POST", "/api/report", {
-        reportedUserId: otherUserId,
-        reason,
+  const sendTypingIndicator = useCallback(
+    (typing: boolean) => {
+      wsManager.send({
+        type: typing ? "typing" : "stop_typing",
+        matchId,
+        senderId: user?.id || "",
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Report Submitted", "Thank you for helping keep the community safe.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to submit report. Please try again.");
-    }
-  }, [otherUserId]);
+    },
+    [matchId, user?.id],
+  );
+
+  const handleTextChange = useCallback(
+    (text: string) => {
+      setMessage(text);
+
+      if (text.length > 0) {
+        sendTypingIndicator(true);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          sendTypingIndicator(false);
+        }, 2000);
+      } else {
+        sendTypingIndicator(false);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+      }
+    },
+    [sendTypingIndicator],
+  );
+
+  const handleReport = useCallback(
+    async (reason: string) => {
+      try {
+        await apiRequest("POST", "/report", {
+          reportedUserId: otherUserId,
+          reason,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          "Report Submitted",
+          "Thank you for helping keep the community safe.",
+        );
+      } catch (error) {
+        Alert.alert("Error", "Failed to submit report. Please try again.");
+      }
+    },
+    [otherUserId],
+  );
 
   const handleBlock = useCallback(async () => {
     try {
-      await apiRequest("POST", "/api/block", {
+      await apiRequest("POST", "/block", {
         blockedUserId: otherUserId,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -161,7 +177,10 @@ export default function ChatScreen() {
 
   const showReportOptions = useCallback(() => {
     Alert.alert("Report User", "Why are you reporting this user?", [
-      { text: "Inappropriate Content", onPress: () => handleReport("inappropriate_content") },
+      {
+        text: "Inappropriate Content",
+        onPress: () => handleReport("inappropriate_content"),
+      },
       { text: "Harassment", onPress: () => handleReport("harassment") },
       { text: "Spam", onPress: () => handleReport("spam") },
       { text: "Fake Profile", onPress: () => handleReport("fake_profile") },
@@ -182,7 +201,7 @@ export default function ChatScreen() {
             [
               { text: "Cancel", style: "cancel" },
               { text: "Block", style: "destructive", onPress: handleBlock },
-            ]
+            ],
           );
         },
       },
@@ -218,12 +237,11 @@ export default function ChatScreen() {
     sendTypingIndicator(false);
 
     try {
-      const response = await apiRequest("POST", "/api/messages", {
+      const newMessage = await apiRequest<Message>("POST", "/api/messages", {
         matchId,
         senderId: user?.id,
         content,
       });
-      const newMessage = await response.json();
 
       setLocalMessages((prev) => {
         const exists = prev.some((m) => m.id === newMessage.id);
@@ -241,32 +259,34 @@ export default function ChatScreen() {
     }
   }, [message, isSending, matchId, user?.id, queryClient, sendTypingIndicator]);
 
-  const handleQuickMessage = useCallback(async (quickMessage: string) => {
-    setShowQuickMessages(false);
-    setIsSending(true);
+  const handleQuickMessage = useCallback(
+    async (quickMessage: string) => {
+      setShowQuickMessages(false);
+      setIsSending(true);
 
-    try {
-      const response = await apiRequest("POST", "/api/messages", {
-        matchId,
-        senderId: user?.id,
-        content: quickMessage,
-      });
-      const newMessage = await response.json();
+      try {
+        const newMessage = await apiRequest<Message>("POST", "/api/messages", {
+          matchId,
+          senderId: user?.id,
+          content: quickMessage,
+        });
 
-      setLocalMessages((prev) => {
-        const exists = prev.some((m) => m.id === newMessage.id);
-        if (exists) return prev;
-        return [...prev, newMessage];
-      });
+        setLocalMessages((prev) => {
+          const exists = prev.some((m) => m.id === newMessage.id);
+          if (exists) return prev;
+          return [...prev, newMessage];
+        });
 
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-    } catch (error) {
-      Alert.alert("Error", "Failed to send message. Please try again.");
-    } finally {
-      setIsSending(false);
-    }
-  }, [matchId, user?.id, queryClient]);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      } catch (error) {
+        Alert.alert("Error", "Failed to send message. Please try again.");
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [matchId, user?.id, queryClient],
+  );
 
   if (isLoading) {
     return (
@@ -300,7 +320,11 @@ export default function ChatScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Feather name="message-circle" size={48} color={theme.textSecondary} />
+              <Feather
+                name="message-circle"
+                size={48}
+                color={theme.textSecondary}
+              />
               <ThemedText style={styles.emptyText}>
                 Start the conversation!
               </ThemedText>
@@ -318,7 +342,12 @@ export default function ChatScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         />
 
-        <View style={[styles.inputContainer, { paddingBottom: insets.bottom + Spacing.sm }]}>
+        <View
+          style={[
+            styles.inputContainer,
+            { paddingBottom: insets.bottom + Spacing.sm },
+          ]}
+        >
           {showQuickMessages && allMessages.length === 0 ? (
             <ScrollView
               horizontal
@@ -353,7 +382,9 @@ export default function ChatScreen() {
               style={({ pressed }: { pressed: boolean }) => [
                 styles.sendButton,
                 {
-                  backgroundColor: message.trim() ? theme.primary : theme.backgroundSecondary,
+                  backgroundColor: message.trim()
+                    ? theme.primary
+                    : theme.backgroundSecondary,
                   opacity: pressed ? 0.7 : 1,
                 },
               ]}

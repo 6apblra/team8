@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Pressable, Alert, ScrollView, Switch } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ScrollView,
+  Switch,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,7 +17,7 @@ import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -26,6 +33,7 @@ interface UserGame {
   roles?: string[];
   playstyle?: string | null;
   platform?: string | null;
+  isPrimary?: boolean;
 }
 
 interface ProfileData {
@@ -44,14 +52,15 @@ interface ProfileData {
     availableUntil?: string | null;
   };
   userGames: UserGame[];
-  availability: Array<{ dayOfWeek: number; startTime: string; endTime: string }>;
+  availability: { dayOfWeek: number; startTime: string; endTime: string }[];
 }
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile, logout } = useAuth();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
@@ -66,7 +75,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (profileData?.profile) {
-      const { isAvailableNow: available, availableUntil: until } = profileData.profile;
+      const { isAvailableNow: available, availableUntil: until } =
+        profileData.profile;
       setIsAvailableNow(!!available);
       setAvailableUntil(until ? new Date(until) : null);
     }
@@ -95,25 +105,35 @@ export default function ProfileScreen() {
 
   const setAvailableMutation = useMutation({
     mutationFn: async (durationMinutes: number) => {
-      return apiRequest("POST", "/api/available-now", { durationMinutes });
+      return apiRequest<{ success: boolean; availableUntil: string }>(
+        "POST",
+        "/available-now",
+        { durationMinutes },
+      );
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setIsAvailableNow(true);
       setAvailableUntil(new Date(data.availableUntil));
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
+    onError: (error) => {
+      console.error("Set available error:", error);
+    },
   });
 
   const clearAvailableMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("DELETE", "/api/available-now", {});
+      return apiRequest<{ success: boolean }>("DELETE", "/available-now");
     },
     onSuccess: () => {
       setIsAvailableNow(false);
       setAvailableUntil(null);
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    onError: (error) => {
+      console.error("Clear available error:", error);
     },
   });
 
@@ -147,7 +167,9 @@ export default function ProfileScreen() {
     displayProfile?.avatarUrl ||
     `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.id}`;
 
-  const regionLabel = REGIONS.find((r) => r.id === displayProfile?.region)?.label || displayProfile?.region;
+  const regionLabel =
+    REGIONS.find((r) => r.id === displayProfile?.region)?.label ||
+    displayProfile?.region;
   const languageLabels =
     displayProfile?.languages
       ?.map((l: string) => LANGUAGES.find((lang) => lang.id === l)?.label || l)
@@ -167,7 +189,11 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <Pressable onPress={handleEditProfile}>
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
             <View style={styles.editBadge}>
               <Feather name="edit-2" size={14} color="#FFFFFF" />
             </View>
@@ -175,6 +201,17 @@ export default function ProfileScreen() {
           <ThemedText type="h2" style={styles.nickname}>
             {displayProfile?.nickname || "Player"}
           </ThemedText>
+
+          {userGames.find((g) => g.isPrimary) && (
+            <View style={{ marginTop: 4 }}>
+              <GameBadge
+                game={userGames.find((g) => g.isPrimary)!.gameId}
+                size="small"
+                rank={userGames.find((g) => g.isPrimary)!.rank || undefined}
+              />
+            </View>
+          )}
+
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Feather name="map-pin" size={16} color={theme.textSecondary} />
@@ -183,7 +220,9 @@ export default function ProfileScreen() {
             {displayProfile?.micEnabled ? (
               <View style={styles.infoItem}>
                 <Feather name="mic" size={16} color={theme.success} />
-                <ThemedText style={[styles.infoText, { color: theme.success }]}>Mic On</ThemedText>
+                <ThemedText style={[styles.infoText, { color: theme.success }]}>
+                  Mic On
+                </ThemedText>
               </View>
             ) : null}
           </View>
@@ -196,9 +235,25 @@ export default function ProfileScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Games
-          </ThemedText>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="h4" style={styles.sectionTitle}>
+              Games
+            </ThemedText>
+            <Pressable
+              onPress={() => navigation.navigate("EditGames")}
+              style={({ pressed }) => [
+                styles.editButton,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="edit-2" size={16} color={theme.primary} />
+              <ThemedText
+                style={[styles.editButtonText, { color: theme.primary }]}
+              >
+                Edit
+              </ThemedText>
+            </Pressable>
+          </View>
           <View style={styles.gamesGrid}>
             {userGames.length > 0 ? (
               userGames.map((game, index) => (
@@ -211,7 +266,17 @@ export default function ProfileScreen() {
                 />
               ))
             ) : (
-              <ThemedText style={styles.emptyText}>No games added yet</ThemedText>
+              <Pressable
+                onPress={() => navigation.navigate("EditGames")}
+                style={styles.addGamesButton}
+              >
+                <Feather name="plus-circle" size={24} color={theme.primary} />
+                <ThemedText
+                  style={[styles.addGamesText, { color: theme.primary }]}
+                >
+                  Add games to find teammates
+                </ThemedText>
+              </Pressable>
             )}
           </View>
         </View>
@@ -224,13 +289,21 @@ export default function ProfileScreen() {
             <View style={styles.detailRow}>
               <Feather name="globe" size={18} color={theme.textSecondary} />
               <ThemedText style={styles.detailLabel}>Languages</ThemedText>
-              <ThemedText style={styles.detailValue}>{languageLabels}</ThemedText>
+              <ThemedText style={styles.detailValue}>
+                {languageLabels}
+              </ThemedText>
             </View>
             {displayProfile?.discordTag ? (
               <View style={styles.detailRow}>
-                <Feather name="message-square" size={18} color={theme.textSecondary} />
+                <Feather
+                  name="message-square"
+                  size={18}
+                  color={theme.textSecondary}
+                />
                 <ThemedText style={styles.detailLabel}>Discord</ThemedText>
-                <ThemedText style={styles.detailValue}>{displayProfile.discordTag}</ThemedText>
+                <ThemedText style={styles.detailValue}>
+                  {displayProfile.discordTag}
+                </ThemedText>
               </View>
             ) : null}
           </Card>
@@ -244,14 +317,21 @@ export default function ProfileScreen() {
             <View style={styles.availableRow}>
               <View style={styles.availableInfo}>
                 <View style={styles.availableHeader}>
-                  <Feather name="zap" size={20} color={isAvailableNow ? theme.secondary : theme.textSecondary} />
-                  <ThemedText style={[styles.settingLabel, { flex: 0 }]}>Ready to Play</ThemedText>
+                  <Feather
+                    name="zap"
+                    size={20}
+                    color={
+                      isAvailableNow ? theme.secondary : theme.textSecondary
+                    }
+                  />
+                  <ThemedText style={[styles.settingLabel, { flex: 0 }]}>
+                    Ready to Play
+                  </ThemedText>
                 </View>
                 <ThemedText style={styles.availableDescription}>
                   {isAvailableNow
                     ? "Others can see you're looking for teammates now"
-                    : "Let others know you're available to play"
-                  }
+                    : "Let others know you're available to play"}
                 </ThemedText>
               </View>
               <Switch
@@ -281,31 +361,54 @@ export default function ProfileScreen() {
           <Card elevation={1}>
             <Pressable
               onPress={handleEditProfile}
-              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
             >
               <Feather name="edit" size={18} color={theme.text} />
               <ThemedText style={styles.settingLabel}>Edit Profile</ThemedText>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
             <View style={styles.settingDivider} />
             <Pressable
               onPress={() => navigation.navigate("Filters")}
-              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
             >
               <Feather name="sliders" size={18} color={theme.text} />
               <ThemedText style={styles.settingLabel}>Filters</ThemedText>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
             <View style={styles.settingDivider} />
             <Pressable
               onPress={handleLogout}
-              style={({ pressed }: { pressed: boolean }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
             >
               <Feather name="log-out" size={18} color={theme.danger} />
-              <ThemedText style={[styles.settingLabel, { color: theme.danger }]}>
+              <ThemedText
+                style={[styles.settingLabel, { color: theme.danger }]}
+              >
                 Sign Out
               </ThemedText>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
             </Pressable>
           </Card>
         </View>
@@ -449,5 +552,37 @@ const styles = StyleSheet.create({
   timerText: {
     color: "#A0A8B8",
     fontSize: 13,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  addGamesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "#1A1F2E",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2A3040",
+    borderStyle: "dashed",
+  },
+  addGamesText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

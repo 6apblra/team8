@@ -89,12 +89,23 @@ jobs:
           cd backend
           alembic upgrade head
 
+      - name: Check if pytest is configured
+        id: pytest_check
+        run: |
+          cd backend
+          if [ -f "pytest.ini" ] || [ -f "tests/" ] || grep -q "pytest" requirements.txt; then
+            echo "has_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run tests
+        if: steps.pytest_check.outputs.has_tests == 'true'
         env:
           DATABASE_URL: postgresql://teamup:teamup123@localhost:5432/teamup_db
         run: |
           cd backend
-          python -m pytest -v || echo "No pytest configuration found"
+          python -m pytest -v
 
       - name: Test database seed
         env:

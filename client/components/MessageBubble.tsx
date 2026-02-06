@@ -10,7 +10,11 @@ interface MessageBubbleProps {
   timestamp?: Date;
 }
 
-export function MessageBubble({ content, isMine, timestamp }: MessageBubbleProps) {
+export function MessageBubble({
+  content,
+  isMine,
+  timestamp,
+}: MessageBubbleProps) {
   const { theme } = useTheme();
 
   const formatTime = (date: Date | undefined) => {
@@ -22,7 +26,12 @@ export function MessageBubble({ content, isMine, timestamp }: MessageBubbleProps
   };
 
   return (
-    <View style={[styles.container, isMine ? styles.containerMine : styles.containerOther]}>
+    <View
+      style={[
+        styles.container,
+        isMine ? styles.containerMine : styles.containerOther,
+      ]}
+    >
       <View
         style={[
           styles.bubble,
@@ -31,7 +40,9 @@ export function MessageBubble({ content, isMine, timestamp }: MessageBubbleProps
             : { backgroundColor: theme.backgroundSecondary },
         ]}
       >
-        <ThemedText style={[styles.content, isMine ? styles.textMine : styles.textOther]}>
+        <ThemedText
+          style={[styles.content, isMine ? styles.textMine : styles.textOther]}
+        >
           {content}
         </ThemedText>
       </View>

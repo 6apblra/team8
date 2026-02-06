@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -63,7 +69,10 @@ export default function LoginScreen() {
       <KeyboardAwareScrollViewCompat
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
+          {
+            paddingTop: insets.top + Spacing["3xl"],
+            paddingBottom: insets.bottom + Spacing.xl,
+          },
         ]}
       >
         <View style={styles.header}>
@@ -82,7 +91,12 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Feather name="mail" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+            <Feather
+              name="mail"
+              size={20}
+              color={theme.textSecondary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={[styles.input, { color: theme.text }]}
               placeholder="Email"
@@ -96,7 +110,12 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Feather name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+            <Feather
+              name="lock"
+              size={20}
+              color={theme.textSecondary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={[styles.input, { color: theme.text, flex: 1 }]}
               placeholder="Password"
@@ -105,7 +124,10 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeButton}
+            >
               <Feather
                 name={showPassword ? "eye-off" : "eye"}
                 size={20}
@@ -116,7 +138,12 @@ export default function LoginScreen() {
 
           {!isLogin ? (
             <View style={styles.inputContainer}>
-              <Feather name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+              <Feather
+                name="lock"
+                size={20}
+                color={theme.textSecondary}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="Confirm Password"
@@ -131,11 +158,17 @@ export default function LoginScreen() {
           {error ? (
             <View style={styles.errorContainer}>
               <Feather name="alert-circle" size={16} color={theme.danger} />
-              <ThemedText style={[styles.errorText, { color: theme.danger }]}>{error}</ThemedText>
+              <ThemedText style={[styles.errorText, { color: theme.danger }]}>
+                {error}
+              </ThemedText>
             </View>
           ) : null}
 
-          <Button onPress={handleSubmit} disabled={loading} style={styles.button}>
+          <Button
+            onPress={handleSubmit}
+            disabled={loading}
+            style={styles.button}
+          >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : isLogin ? (
@@ -145,9 +178,14 @@ export default function LoginScreen() {
             )}
           </Button>
 
-          <Pressable onPress={() => setIsLogin(!isLogin)} style={styles.toggleButton}>
+          <Pressable
+            onPress={() => setIsLogin(!isLogin)}
+            style={styles.toggleButton}
+          >
             <ThemedText style={styles.toggleText}>
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              {isLogin
+                ? "Don't have an account? "
+                : "Already have an account? "}
               <ThemedText style={[styles.toggleText, { color: theme.primary }]}>
                 {isLogin ? "Sign Up" : "Sign In"}
               </ThemedText>

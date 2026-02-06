@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { getToken } from "./api-client";
 
 // TODO: Update this to your backend URL
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001/api";
 
 interface WebSocketMessage {
   type: string;

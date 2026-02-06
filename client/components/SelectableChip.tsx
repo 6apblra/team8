@@ -50,9 +50,7 @@ export function SelectableChip({
       >
         {label}
       </ThemedText>
-      {selected ? (
-        <Feather name="check" size={14} color="#FFFFFF" />
-      ) : null}
+      {selected ? <Feather name="check" size={14} color="#FFFFFF" /> : null}
     </Pressable>
   );
 }

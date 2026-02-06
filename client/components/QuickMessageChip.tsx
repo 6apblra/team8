@@ -17,7 +17,10 @@ export function QuickMessageChip({ message, onPress }: QuickMessageChipProps) {
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.chip,
-        { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+        {
+          backgroundColor: theme.backgroundSecondary,
+          opacity: pressed ? 0.7 : 1,
+        },
       ]}
     >
       <ThemedText style={styles.text}>{message}</ThemedText>

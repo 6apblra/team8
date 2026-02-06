@@ -40,6 +40,8 @@ interface SwipeCardProps {
   isTopCard?: boolean;
   isOnline?: boolean;
   isAvailableNow?: boolean;
+  width?: number;
+  height?: number;
 }
 
 const AVATAR_PLACEHOLDERS = [
@@ -55,6 +57,8 @@ export function SwipeCard({
   isTopCard = false,
   isOnline = false,
   isAvailableNow = false,
+  width,
+  height,
 }: SwipeCardProps) {
   const { theme } = useTheme();
 
@@ -62,13 +66,10 @@ export function SwipeCard({
     const rotate = interpolate(
       translateX.value,
       [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-      [-15, 0, 15]
+      [-15, 0, 15],
     );
     return {
-      transform: [
-        { translateX: translateX.value },
-        { rotate: `${rotate}deg` },
-      ],
+      transform: [{ translateX: translateX.value }, { rotate: `${rotate}deg` }],
     };
   });
 
@@ -84,11 +85,15 @@ export function SwipeCard({
     profile.avatarUrl ||
     AVATAR_PLACEHOLDERS[Math.floor(Math.random() * AVATAR_PLACEHOLDERS.length)];
 
-  const primaryGame = userGames.find((g) => g) || userGames[0];
-
   return (
     <Animated.View
-      style={[styles.card, { backgroundColor: theme.backgroundDefault }, isTopCard ? rotateStyle : undefined]}
+      style={[
+        styles.card,
+        { backgroundColor: theme.backgroundDefault },
+        width ? { width } : undefined,
+        height ? { height } : undefined,
+        isTopCard ? rotateStyle : undefined,
+      ]}
     >
       <View style={styles.imageContainer}>
         <Image
@@ -96,6 +101,7 @@ export function SwipeCard({
           style={styles.avatar}
           contentFit="cover"
         />
+        <View style={styles.imageOverlay} />
         <Animated.View style={[styles.likeLabel, likeOpacity]}>
           <ThemedText style={styles.likeLabelText}>LIKE</ThemedText>
         </Animated.View>
@@ -179,13 +185,24 @@ export function SwipeCard({
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius["2xl"],
     overflow: "hidden",
     position: "absolute",
+    backgroundColor: "#111726",
+    shadowColor: "#000000",
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 12,
   },
   imageContainer: {
-    height: 280,
+    height: 320,
     position: "relative",
+    backgroundColor: "#0F1525",
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
   avatar: {
     width: "100%",
@@ -193,56 +210,63 @@ const styles = StyleSheet.create({
   },
   likeLabel: {
     position: "absolute",
-    top: 40,
-    left: 20,
-    borderWidth: 3,
+    top: 36,
+    left: 18,
+    borderWidth: 2,
     borderColor: "#00FF88",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    transform: [{ rotate: "-15deg" }],
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    transform: [{ rotate: "-12deg" }],
+    backgroundColor: "rgba(0,255,136,0.1)",
   },
   likeLabelText: {
     color: "#00FF88",
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "800",
+    letterSpacing: 2,
   },
   nopeLabel: {
     position: "absolute",
-    top: 40,
-    right: 20,
-    borderWidth: 3,
+    top: 36,
+    right: 18,
+    borderWidth: 2,
     borderColor: "#FF3366",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    transform: [{ rotate: "15deg" }],
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    transform: [{ rotate: "12deg" }],
+    backgroundColor: "rgba(255,51,102,0.12)",
   },
   nopeLabelText: {
     color: "#FF3366",
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "800",
+    letterSpacing: 2,
   },
   statusContainer: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    gap: 6,
+    top: 14,
+    right: 14,
+    gap: 8,
     alignItems: "flex-end",
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
     gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(26,31,46,0.75)",
   },
   onlineBadge: {
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0, 255, 136, 0.12)",
   },
   availableBadge: {
-    backgroundColor: "#B857FF",
+    backgroundColor: "rgba(184, 87, 255, 0.18)",
   },
   onlineDot: {
     width: 8,
@@ -253,10 +277,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     color: "#FFFFFF",
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   content: {
-    padding: Spacing.lg,
+    padding: Spacing["2xl"],
     gap: Spacing.md,
   },
   header: {
@@ -269,6 +294,7 @@ const styles = StyleSheet.create({
   },
   nickname: {
     color: "#FFFFFF",
+    letterSpacing: 0.4,
   },
   age: {
     fontSize: 18,

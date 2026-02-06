@@ -15,6 +15,21 @@ def create_swipe(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Check if trying to swipe on self
+    if current_user.id == swipe_data.to_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot swipe on yourself"
+        )
+    
+    # Check if target user exists
+    target_user = db.query(User).filter(User.id == swipe_data.to_user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target user not found"
+        )
+    
     # Check if already swiped
     existing_swipe = db.query(Swipe).filter(
         and_(
@@ -27,13 +42,6 @@ def create_swipe(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Already swiped on this user"
-        )
-    
-    # Check if trying to swipe on self
-    if current_user.id == swipe_data.to_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot swipe on yourself"
         )
     
     # Create swipe
@@ -73,11 +81,18 @@ def create_swipe(
             if not existing_match:
                 match = Match(user1_id=user1_id, user2_id=user2_id)
                 db.add(match)
+                db.flush()
     
     db.commit()
     db.refresh(swipe)
     
-    response = SwipeResponse.model_validate(swipe)
-    response.is_match = is_match
-    return response
+    # Build response with is_match flag
+    return SwipeResponse(
+        id=swipe.id,
+        from_user_id=swipe.from_user_id,
+        to_user_id=swipe.to_user_id,
+        swipe_type=swipe.swipe_type,
+        created_at=swipe.created_at,
+        is_match=is_match
+    )
 

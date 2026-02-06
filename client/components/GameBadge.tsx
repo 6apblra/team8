@@ -19,12 +19,18 @@ const GAME_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   dota2: "shield",
   fortnite: "box",
   lol: "award",
+  wot: "menu", // Using menu/list as approximation for WoT tracks/menu logic
+  apex: "triangle", // Using triangle for Apex logo shape
 };
 
 // Маппинг полных имен игр на их id
 const GAME_NAME_TO_ID: Record<string, string> = {
-  "leagueoflegends": "lol",
+  leagueoflegends: "lol",
   "league of legends": "lol",
+  worldoftanks: "wot",
+  "world of tanks": "wot",
+  apexlegends: "apex",
+  "apex legends": "apex",
 };
 
 export function GameBadge({
@@ -62,10 +68,17 @@ export function GameBadge({
         },
       ]}
     >
-      <Feather name={icon} size={iconSize} color={selected ? "#FFFFFF" : color} />
+      <Feather
+        name={icon}
+        size={iconSize}
+        color={selected ? "#FFFFFF" : color}
+      />
       <View style={styles.textContainer}>
         <ThemedText
-          style={[styles.gameName, { fontSize, color: selected ? "#FFFFFF" : color }]}
+          style={[
+            styles.gameName,
+            { fontSize, color: selected ? "#FFFFFF" : color },
+          ]}
         >
           {game}
         </ThemedText>
@@ -87,7 +100,9 @@ export function GameBadge({
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }: { pressed: boolean }) => [{ opacity: pressed ? 0.7 : 1 }]}
+        style={({ pressed }: { pressed: boolean }) => [
+          { opacity: pressed ? 0.7 : 1 },
+        ]}
       >
         {content}
       </Pressable>

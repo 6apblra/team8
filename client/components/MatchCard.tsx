@@ -53,11 +53,18 @@ export function MatchCard({
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.container,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
+        {
+          backgroundColor: theme.backgroundDefault,
+          opacity: pressed ? 0.8 : 1,
+        },
       ]}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: avatar }} style={styles.avatar} contentFit="cover" />
+        <Image
+          source={{ uri: avatar }}
+          style={styles.avatar}
+          contentFit="cover"
+        />
         <View style={[styles.onlineDot, { backgroundColor: theme.success }]} />
       </View>
 

@@ -30,7 +30,13 @@ for game_data in games_data:
     if not game:
         game = Game(**game_data)
         db.add(game)
-        db.flush()
+
+# Commit all games at once
+db.commit()
+
+# Reload games from DB to get their IDs
+for game_data in games_data:
+    game = db.query(Game).filter(Game.name == game_data["name"]).first()
     games[game_data["name"]] = game
 
 # Test users

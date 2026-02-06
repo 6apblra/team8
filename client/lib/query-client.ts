@@ -1,19 +1,14 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getToken } from "./api-client";
 
 /**
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
-  }
-
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  // Use the same env var as api-client, but strip /api if present because query keys usually start with /api
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001";
+  return apiUrl.replace(/\/api$/, "");
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -51,7 +46,14 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
+    const headers: HeadersInit = {};
+    const token = await getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(url, {
+      headers,
       credentials: "include",
     });
 

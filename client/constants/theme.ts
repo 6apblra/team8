@@ -45,6 +45,8 @@ export const GameColors: Record<string, string> = {
   dota2: "#C23C2A",
   fortnite: "#9D4DFF",
   lol: "#C89B3C",
+  wot: "#4C6530", // Olive/Green
+  apex: "#D63333", // Red
 };
 
 export const Spacing = {

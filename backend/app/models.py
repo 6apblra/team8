@@ -1,16 +1,17 @@
 from sqlalchemy import (
-    Column, String, Text, Integer, Boolean, DateTime, 
+    Column, String, Text, Integer, Boolean, DateTime,
     ForeignKey, Index, UniqueConstraint, JSON
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+import uuid
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(Text, unique=True, nullable=False, index=True)
     password_hash = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -33,7 +34,7 @@ class User(Base):
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     nickname = Column(Text, nullable=False)
     avatar_url = Column(Text)
@@ -52,7 +53,7 @@ class Profile(Base):
 class Game(Base):
     __tablename__ = "games"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(Text, unique=True, nullable=False)
     icon = Column(Text)
 
@@ -62,7 +63,7 @@ class Game(Base):
 class UserGame(Base):
     __tablename__ = "user_games"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     game_id = Column(String, ForeignKey("games.id", ondelete="CASCADE"), nullable=False, index=True)
     rank = Column(Text)
@@ -79,7 +80,7 @@ class UserGame(Base):
 class AvailabilityWindow(Base):
     __tablename__ = "availability_windows"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     day_of_week = Column(Integer, nullable=False)  # 0-6 (Monday-Sunday)
     start_time = Column(Text, nullable=False)  # "HH:MM"
@@ -92,7 +93,7 @@ class AvailabilityWindow(Base):
 class Swipe(Base):
     __tablename__ = "swipes"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     from_user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     to_user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     swipe_type = Column(Text, nullable=False)  # "like", "pass", "superlike"
@@ -110,7 +111,7 @@ class Swipe(Base):
 class Match(Base):
     __tablename__ = "matches"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user1_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     user2_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     matched_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -129,7 +130,7 @@ class Match(Base):
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
     sender_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     text = Column(Text, nullable=False)
@@ -161,7 +162,7 @@ class Block(Base):
 class Report(Base):
     __tablename__ = "reports"
 
-    id = Column(String, primary_key=True, server_default="gen_random_uuid()")
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     reporter_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     reported_user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     reason = Column(Text, nullable=False)

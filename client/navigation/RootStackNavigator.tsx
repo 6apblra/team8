@@ -6,6 +6,7 @@ import LoginScreen from "@/screens/LoginScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
 import ChatScreen from "@/screens/ChatScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
+import EditGamesScreen from "@/screens/EditGamesScreen";
 import FiltersScreen from "@/screens/FiltersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
@@ -22,6 +23,7 @@ export type RootStackParamList = {
     otherUserId: string;
   };
   EditProfile: undefined;
+  EditGames: undefined;
   Filters: undefined;
 };
 
@@ -34,7 +36,14 @@ function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.backgroundRoot }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.backgroundRoot,
+        }}
+      >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -74,6 +83,14 @@ function RootNavigator() {
             component={EditProfileScreen}
             options={{
               headerTitle: "Edit Profile",
+              presentation: "modal",
+            }}
+          />
+          <Stack.Screen
+            name="EditGames"
+            component={EditGamesScreen}
+            options={{
+              headerTitle: "Edit Games",
               presentation: "modal",
             }}
           />

@@ -21,11 +21,11 @@ export async function removeToken(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
-async function apiRequest<T>(
+export async function apiRequest<T>(
   method: string,
   endpoint: string,
   data?: unknown,
-  requireAuth: boolean = true
+  requireAuth: boolean = true,
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const headers: HeadersInit = {
@@ -43,6 +43,7 @@ async function apiRequest<T>(
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
+    credentials: "include", // Include cookies for cross-origin requests
   };
 
   const response = await fetch(url, options);
@@ -70,24 +71,20 @@ async function apiRequest<T>(
 export const api = {
   // Auth
   async register(email: string, password: string) {
-    const response = await apiRequest<{ access_token: string; token_type: string }>(
-      "POST",
-      "/auth/register",
-      { email, password },
-      false
-    );
-    await setToken(response.access_token);
+    const response = await apiRequest<{
+      token: string;
+      user: any;
+    }>("POST", "/auth/register", { email, password }, false);
+    await setToken(response.token);
     return response;
   },
 
   async login(email: string, password: string) {
-    const response = await apiRequest<{ access_token: string; token_type: string }>(
-      "POST",
-      "/auth/login",
-      { email, password },
-      false
-    );
-    await setToken(response.access_token);
+    const response = await apiRequest<{
+      token: string;
+      user: any;
+    }>("POST", "/auth/login", { email, password }, false);
+    await setToken(response.token);
     return response;
   },
 
@@ -144,7 +141,10 @@ export const api = {
     if (cursor) queryParams.append("cursor", cursor);
     if (limit) queryParams.append("limit", limit.toString());
     const query = queryParams.toString();
-    return apiRequest("GET", `/matches/${matchId}/messages${query ? `?${query}` : ""}`);
+    return apiRequest(
+      "GET",
+      `/matches/${matchId}/messages${query ? `?${query}` : ""}`,
+    );
   },
 
   async sendMessage(matchId: string, text: string) {
@@ -164,4 +164,3 @@ export const api = {
     });
   },
 };
-

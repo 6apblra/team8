@@ -26,7 +26,7 @@ interface MatchData {
       nickname: string;
       avatarUrl: string | null;
     };
-    userGames: Array<{ gameId: string }>;
+    userGames: { gameId: string }[];
   };
   lastMessage?: {
     content: string;
@@ -39,11 +39,16 @@ export default function MatchesScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { theme } = useTheme();
 
-  const { data: matches = [], isLoading, refetch } = useQuery<MatchData[]>({
+  const {
+    data: matches = [],
+    isLoading,
+    refetch,
+  } = useQuery<MatchData[]>({
     queryKey: ["/api/matches", user?.id],
     enabled: !!user?.id,
     refetchInterval: 10000,
@@ -82,7 +87,11 @@ export default function MatchesScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Feather name="message-circle" size={80} color={theme.textSecondary} />
+            <Feather
+              name="message-circle"
+              size={80}
+              color={theme.textSecondary}
+            />
             <ThemedText type="h3" style={styles.emptyTitle}>
               No Matches Yet
             </ThemedText>
@@ -96,7 +105,13 @@ export default function MatchesScreen() {
             nickname={item.otherUser.profile.nickname}
             avatarUrl={item.otherUser.profile.avatarUrl}
             lastMessage={item.lastMessage?.content}
-            timestamp={item.lastMessage?.createdAt ? new Date(item.lastMessage.createdAt) : item.matchedAt ? new Date(item.matchedAt) : null}
+            timestamp={
+              item.lastMessage?.createdAt
+                ? new Date(item.lastMessage.createdAt)
+                : item.matchedAt
+                  ? new Date(item.matchedAt)
+                  : null
+            }
             unreadCount={item.unreadCount}
             onPress={() => handleMatchPress(item)}
           />

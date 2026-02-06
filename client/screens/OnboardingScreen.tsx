@@ -1,9 +1,16 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useAuth } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/query-client";
+import { useAuth, type Profile } from "@/lib/auth-context";
+import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
@@ -11,7 +18,17 @@ import { SelectableChip } from "@/components/SelectableChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
-import { GAMES, RANKS, ROLES, PLAYSTYLES, PLATFORMS, REGIONS, LANGUAGES, DAYS_OF_WEEK, TIME_SLOTS } from "@/lib/game-data";
+import {
+  GAMES,
+  RANKS,
+  ROLES,
+  PLAYSTYLES,
+  PLATFORMS,
+  REGIONS,
+  LANGUAGES,
+  DAYS_OF_WEEK,
+  TIME_SLOTS,
+} from "@/lib/game-data";
 
 const STEPS = ["Profile", "Games", "Schedule", "Finish"];
 
@@ -41,25 +58,29 @@ export default function OnboardingScreen() {
 
   const toggleGame = (gameId: string) => {
     setSelectedGames((prev) =>
-      prev.includes(gameId) ? prev.filter((g) => g !== gameId) : [...prev, gameId]
+      prev.includes(gameId)
+        ? prev.filter((g) => g !== gameId)
+        : [...prev, gameId],
     );
   };
 
   const toggleLanguage = (langId: string) => {
     setSelectedLanguages((prev) =>
-      prev.includes(langId) ? prev.filter((l) => l !== langId) : [...prev, langId]
+      prev.includes(langId)
+        ? prev.filter((l) => l !== langId)
+        : [...prev, langId],
     );
   };
 
   const toggleDay = (day: number) => {
     setSelectedDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
     );
   };
 
   const toggleTimeSlot = (slot: string) => {
     setSelectedTimeSlots((prev) =>
-      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot]
+      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot],
     );
   };
 
@@ -109,11 +130,13 @@ export default function OnboardingScreen() {
         discordTag: discordTag.trim() || null,
       };
 
-      const response = await apiRequest("POST", "/api/profile", profileData);
-      const createdProfile = await response.json();
+      const createdProfile = await apiRequest<Profile>(
+        "POST",
+        "/profile",
+        profileData,
+      );
 
       const gamesData = selectedGames.map((gameId) => ({
-        userId: user.id,
         gameId,
         rank: gameRanks[gameId] || null,
         roles: gameRoles[gameId] || [],
@@ -122,7 +145,9 @@ export default function OnboardingScreen() {
         isPrimary: gameId === selectedGames[0],
       }));
 
-      await apiRequest("POST", `/api/user-games/${user.id}`, { games: gamesData });
+      await apiRequest("POST", "/user-games", {
+        games: gamesData,
+      });
 
       const windows = selectedDays.flatMap((day) =>
         selectedTimeSlots.map((slot) => {
@@ -132,10 +157,10 @@ export default function OnboardingScreen() {
             startTime: timeSlot?.start || "00:00",
             endTime: timeSlot?.end || "23:59",
           };
-        })
+        }),
       );
 
-      await apiRequest("POST", `/api/availability/${user.id}`, { windows });
+      await apiRequest("POST", "/availability", { windows });
 
       setProfile(createdProfile);
     } catch (error) {
@@ -206,7 +231,11 @@ export default function OnboardingScreen() {
                   onPress={() => setMicEnabled(!micEnabled)}
                   style={[
                     styles.toggle,
-                    { backgroundColor: micEnabled ? theme.success : theme.backgroundSecondary },
+                    {
+                      backgroundColor: micEnabled
+                        ? theme.success
+                        : theme.backgroundSecondary,
+                    },
                   ]}
                 >
                   <View
@@ -220,7 +249,9 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Discord Tag (optional)</ThemedText>
+              <ThemedText style={styles.label}>
+                Discord Tag (optional)
+              </ThemedText>
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="username#1234"
@@ -266,13 +297,25 @@ export default function OnboardingScreen() {
                     style={[
                       styles.gameCard,
                       {
-                        backgroundColor: isSelected ? gameColor : theme.backgroundSecondary,
+                        backgroundColor: isSelected
+                          ? gameColor
+                          : theme.backgroundSecondary,
                         borderColor: gameColor,
                       },
                     ]}
                   >
                     <Feather
-                      name={game.id === "valorant" ? "crosshair" : game.id === "cs2" ? "target" : game.id === "dota2" ? "shield" : game.id === "fortnite" ? "box" : "award"}
+                      name={
+                        game.id === "valorant"
+                          ? "crosshair"
+                          : game.id === "cs2"
+                            ? "target"
+                            : game.id === "dota2"
+                              ? "shield"
+                              : game.id === "fortnite"
+                                ? "box"
+                                : "award"
+                      }
                       size={32}
                       color={isSelected ? "#FFFFFF" : gameColor}
                     />
@@ -358,7 +401,11 @@ export default function OnboardingScreen() {
                     <ThemedText
                       style={[
                         styles.dayText,
-                        { color: selectedDays.includes(day.id) ? "#FFFFFF" : theme.textSecondary },
+                        {
+                          color: selectedDays.includes(day.id)
+                            ? "#FFFFFF"
+                            : theme.textSecondary,
+                        },
                       ]}
                     >
                       {day.label}
@@ -388,13 +435,27 @@ export default function OnboardingScreen() {
                     ]}
                   >
                     <Feather
-                      name={slot.id === "morning" ? "sunrise" : slot.id === "afternoon" ? "sun" : slot.id === "evening" ? "sunset" : "moon"}
+                      name={
+                        slot.id === "morning"
+                          ? "sunrise"
+                          : slot.id === "afternoon"
+                            ? "sun"
+                            : slot.id === "evening"
+                              ? "sunset"
+                              : "moon"
+                      }
                       size={24}
-                      color={selectedTimeSlots.includes(slot.id) ? "#FFFFFF" : theme.textSecondary}
+                      color={
+                        selectedTimeSlots.includes(slot.id)
+                          ? "#FFFFFF"
+                          : theme.textSecondary
+                      }
                     />
                     <ThemedText
                       style={{
-                        color: selectedTimeSlots.includes(slot.id) ? "#FFFFFF" : theme.text,
+                        color: selectedTimeSlots.includes(slot.id)
+                          ? "#FFFFFF"
+                          : theme.text,
                         fontWeight: "600",
                       }}
                     >
@@ -403,7 +464,9 @@ export default function OnboardingScreen() {
                     <ThemedText
                       style={{
                         fontSize: 12,
-                        color: selectedTimeSlots.includes(slot.id) ? "rgba(255,255,255,0.8)" : theme.textSecondary,
+                        color: selectedTimeSlots.includes(slot.id)
+                          ? "rgba(255,255,255,0.8)"
+                          : theme.textSecondary,
                       }}
                     >
                       {slot.start} - {slot.end}
@@ -422,10 +485,11 @@ export default function OnboardingScreen() {
               <Feather name="check-circle" size={80} color={theme.success} />
             </View>
             <ThemedText type="h2" style={styles.stepTitle}>
-              You're All Set!
+              You&apos;re All Set!
             </ThemedText>
             <ThemedText style={[styles.stepSubtitle, { textAlign: "center" }]}>
-              Start swiping to find your perfect gaming teammates. Good luck and have fun!
+              Start swiping to find your perfect gaming teammates. Good luck and
+              have fun!
             </ThemedText>
           </View>
         );
@@ -445,7 +509,8 @@ export default function OnboardingScreen() {
               style={[
                 styles.progressDot,
                 {
-                  backgroundColor: index <= step ? theme.primary : theme.backgroundSecondary,
+                  backgroundColor:
+                    index <= step ? theme.primary : theme.backgroundSecondary,
                 },
               ]}
             />
@@ -463,7 +528,9 @@ export default function OnboardingScreen() {
         {renderStep()}
       </KeyboardAwareScrollViewCompat>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+      >
         {step > 0 ? (
           <Pressable onPress={handleBack} style={styles.backButton}>
             <Feather name="arrow-left" size={20} color={theme.text} />

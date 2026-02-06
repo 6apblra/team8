@@ -1,29 +1,37 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api, getToken, removeToken } from '@/lib/api-client';
-import { wsManager } from '@/lib/websocket';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { api, getToken, removeToken } from "@/lib/api-client";
+import { wsManager } from "@/lib/websocket";
 
 interface User {
   id: string;
   email: string;
 }
 
-interface Profile {
+export interface Profile {
   id: string;
-  user_id: string;
+  userId: string;
   nickname: string;
-  avatar_url?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
   region: string;
-  language?: string | null;
   languages?: string[];
-  platforms: string[];
-  playstyle?: string | null;
-  mic: boolean;
   micEnabled?: boolean;
   discordTag?: string | null;
-  created_at: string;
-  updated_at: string;
+  age?: number | null;
+  timezone?: string | null;
+  steamId?: string | null;
+  riotId?: string | null;
+  toxicityRating?: number;
+  lastSeenAt?: string | null;
+  isAvailableNow?: boolean;
+  availableUntil?: string | null;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -32,8 +40,14 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasProfile: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   setProfile: (profile: Profile) => void;
   refreshProfile: () => Promise<void>;
@@ -72,13 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const profileData = await api.getMe() as Profile | null;
-      if (profileData) {
-        setUser({ id: profileData.user_id, email: '' }); // Email not in profile response
-        setProfileState(profileData);
+      const response = (await api.getMe()) as {
+        user: { id: string; email: string; isPremium?: boolean };
+        profile: Profile | null;
+        hasProfile: boolean;
+      };
+      if (response?.user) {
+        setUser({ id: response.user.id, email: response.user.email });
+        setProfileState(response.profile);
       }
     } catch (error) {
-      console.error('Session check failed:', error);
+      console.error("Session check failed:", error);
       await removeToken();
       setUser(null);
       setProfileState(null);
@@ -87,23 +105,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       await api.login(email, password);
       await refreshProfile();
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Login failed' };
+      return { success: false, error: error.message || "Login failed" };
     }
   };
 
-  const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      await api.register(email, password);
-      // After registration, user needs to create profile
+      const response = await api.register(email, password);
+      // Set user from registration response
+      if (response?.user) {
+        setUser({ id: response.user.id, email: response.user.email });
+      }
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Registration failed' };
+      return { success: false, error: error.message || "Registration failed" };
     }
   };
 
@@ -120,13 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     try {
-      const profileData = await api.getMe() as Profile | null;
-      if (profileData) {
-        setUser({ id: profileData.user_id, email: '' });
-        setProfileState(profileData);
+      const response = (await api.getMe()) as {
+        user: { id: string; email: string; isPremium?: boolean };
+        profile: Profile | null;
+        hasProfile: boolean;
+      };
+      if (response?.user) {
+        setUser({ id: response.user.id, email: response.user.email });
+        setProfileState(response.profile);
       }
     } catch (error) {
-      console.error('Failed to refresh profile:', error);
+      console.error("Failed to refresh profile:", error);
     }
   };
 
@@ -149,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }

@@ -62,25 +62,25 @@ export default function FiltersScreen() {
 
   const toggleGame = (id: string) => {
     setSelectedGames((prev) =>
-      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id],
     );
   };
 
   const toggleRegion = (id: string) => {
     setSelectedRegions((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id],
     );
   };
 
   const toggleLanguage = (id: string) => {
     setSelectedLanguages((prev) =>
-      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
     );
   };
 
   const togglePlaystyle = (id: string) => {
     setSelectedPlaystyles((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
 
@@ -141,7 +141,9 @@ export default function FiltersScreen() {
                   style={[
                     styles.gameCard,
                     {
-                      backgroundColor: isSelected ? gameColor : theme.backgroundSecondary,
+                      backgroundColor: isSelected
+                        ? gameColor
+                        : theme.backgroundSecondary,
                       borderColor: gameColor,
                     },
                   ]}
@@ -151,12 +153,12 @@ export default function FiltersScreen() {
                       game.id === "valorant"
                         ? "crosshair"
                         : game.id === "cs2"
-                        ? "target"
-                        : game.id === "dota2"
-                        ? "shield"
-                        : game.id === "fortnite"
-                        ? "box"
-                        : "award"
+                          ? "target"
+                          : game.id === "dota2"
+                            ? "shield"
+                            : game.id === "fortnite"
+                              ? "box"
+                              : "award"
                     }
                     size={24}
                     color={isSelected ? "#FFFFFF" : gameColor}
@@ -228,13 +230,19 @@ export default function FiltersScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
               <Feather name="mic" size={20} color={theme.text} />
-              <ThemedText style={styles.toggleText}>Microphone Required</ThemedText>
+              <ThemedText style={styles.toggleText}>
+                Microphone Required
+              </ThemedText>
             </View>
             <Pressable
               onPress={() => setMicRequired(!micRequired)}
               style={[
                 styles.toggle,
-                { backgroundColor: micRequired ? theme.success : theme.backgroundSecondary },
+                {
+                  backgroundColor: micRequired
+                    ? theme.success
+                    : theme.backgroundSecondary,
+                },
               ]}
             >
               <View
@@ -248,17 +256,29 @@ export default function FiltersScreen() {
 
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
-              <Feather name="zap" size={20} color={availableNowOnly ? theme.secondary : theme.text} />
+              <Feather
+                name="zap"
+                size={20}
+                color={availableNowOnly ? theme.secondary : theme.text}
+              />
               <View style={styles.toggleLabelContent}>
-                <ThemedText style={styles.toggleText}>Available Now Only</ThemedText>
-                <ThemedText style={styles.toggleSubtext}>Show only players ready to play</ThemedText>
+                <ThemedText style={styles.toggleText}>
+                  Available Now Only
+                </ThemedText>
+                <ThemedText style={styles.toggleSubtext}>
+                  Show only players ready to play
+                </ThemedText>
               </View>
             </View>
             <Pressable
               onPress={() => setAvailableNowOnly(!availableNowOnly)}
               style={[
                 styles.toggle,
-                { backgroundColor: availableNowOnly ? theme.secondary : theme.backgroundSecondary },
+                {
+                  backgroundColor: availableNowOnly
+                    ? theme.secondary
+                    : theme.backgroundSecondary,
+                },
               ]}
             >
               <View
@@ -272,7 +292,9 @@ export default function FiltersScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+      >
         {hasFilters ? (
           <Pressable onPress={handleReset} style={styles.resetButton}>
             <Feather name="x" size={18} color={theme.textSecondary} />

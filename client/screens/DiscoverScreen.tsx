@@ -16,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ActionButton } from "@/components/ActionButton";
@@ -27,6 +27,9 @@ import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+const CARD_MAX_WIDTH = 460;
+const CARD_HEIGHT = 540;
+const CARD_WIDTH = Math.min(SCREEN_WIDTH - Spacing["4xl"] * 2, CARD_MAX_WIDTH);
 
 interface FeedCandidate {
   id: string;
@@ -38,17 +41,17 @@ interface FeedCandidate {
   region: string;
   languages?: string[];
   micEnabled?: boolean;
-  userGames: Array<{
+  userGames: {
     gameId: string;
     rank?: string | null;
     roles?: string[];
     playstyle?: string | null;
-  }>;
-  availability: Array<{
+  }[];
+  availability: {
     dayOfWeek: number;
     startTime: string;
     endTime: string;
-  }>;
+  }[];
   isOnline?: boolean;
   isAvailableNow?: boolean;
 }
@@ -82,7 +85,7 @@ export default function DiscoverScreen() {
         }
       };
       loadFilters();
-    }, [])
+    }, []),
   );
 
   const buildFeedQueryKey = useCallback(() => {
@@ -107,7 +110,11 @@ export default function DiscoverScreen() {
     return [path];
   }, [filters]);
 
-  const { data: candidates = [], isLoading, refetch } = useQuery<FeedCandidate[]>({
+  const {
+    data: candidates = [],
+    isLoading,
+    refetch,
+  } = useQuery<FeedCandidate[]>({
     queryKey: buildFeedQueryKey(),
     enabled: !!user?.id,
   });
@@ -119,19 +126,31 @@ export default function DiscoverScreen() {
     }
   }, [filters, user?.id, refetch]);
 
-  const { data: swipeStatus } = useQuery<{ dailyCount: number; limit: number; remaining: number }>({
+  const { data: swipeStatus } = useQuery<{
+    dailyCount: number;
+    limit: number;
+    remaining: number;
+  }>({
     queryKey: ["/api/swipe-status", user?.id],
     enabled: !!user?.id,
   });
 
-  const swipeMutation = useMutation({
-    mutationFn: async ({ toUserId, swipeType }: { toUserId: string; swipeType: string }) => {
-      const response = await apiRequest("POST", "/api/swipe", {
-        fromUserId: user?.id,
+  const swipeMutation = useMutation<
+    { match?: boolean },
+    Error,
+    { toUserId: string; swipeType: string }
+  >({
+    mutationFn: async ({
+      toUserId,
+      swipeType,
+    }: {
+      toUserId: string;
+      swipeType: string;
+    }) => {
+      return apiRequest<{ match?: boolean }>("POST", "/swipe", {
         toUserId,
         swipeType,
       });
-      return response.json();
     },
     onSuccess: (data) => {
       if (data.match) {
@@ -149,12 +168,13 @@ export default function DiscoverScreen() {
     (direction: "left" | "right" | "up") => {
       if (!currentCandidate) return;
 
-      const swipeType = direction === "left" ? "skip" : direction === "up" ? "super" : "like";
+      const swipeType =
+        direction === "left" ? "skip" : direction === "up" ? "super" : "like";
 
       Haptics.impactAsync(
         direction === "up"
           ? Haptics.ImpactFeedbackStyle.Heavy
-          : Haptics.ImpactFeedbackStyle.Medium
+          : Haptics.ImpactFeedbackStyle.Medium,
       );
 
       swipeMutation.mutate({
@@ -164,7 +184,7 @@ export default function DiscoverScreen() {
 
       setCurrentIndex((prev) => prev + 1);
     },
-    [currentCandidate, swipeMutation]
+    [currentCandidate, swipeMutation],
   );
 
   const resetPosition = () => {
@@ -196,14 +216,21 @@ export default function DiscoverScreen() {
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
-      { rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])}deg` },
+      {
+        rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])}deg`,
+      },
     ],
   }));
 
   const handleButtonSwipe = (direction: "left" | "right" | "up") => {
     if (!currentCandidate) return;
 
-    const targetX = direction === "left" ? -SCREEN_WIDTH * 1.5 : direction === "right" ? SCREEN_WIDTH * 1.5 : 0;
+    const targetX =
+      direction === "left"
+        ? -SCREEN_WIDTH * 1.5
+        : direction === "right"
+          ? SCREEN_WIDTH * 1.5
+          : 0;
     const targetY = direction === "up" ? -500 : 0;
 
     translateX.value = withSpring(targetX, { damping: 20 });
@@ -227,7 +254,13 @@ export default function DiscoverScreen() {
 
   if (!currentCandidate) {
     return (
-      <ThemedView style={[styles.container, styles.centered, { paddingTop: headerHeight }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          styles.centered,
+          { paddingTop: headerHeight },
+        ]}
+      >
         <Feather name="users" size={80} color={theme.textSecondary} />
         <ThemedText type="h3" style={styles.emptyTitle}>
           No More Profiles
@@ -259,52 +292,60 @@ export default function DiscoverScreen() {
         </View>
 
         <View style={styles.cardContainer}>
-          {nextCandidate ? (
-            <View style={styles.nextCard}>
-              <SwipeCard
-                profile={{
-                  id: nextCandidate.id,
-                  nickname: nextCandidate.nickname,
-                  avatarUrl: nextCandidate.avatarUrl,
-                  age: nextCandidate.age,
-                  bio: nextCandidate.bio,
-                  region: nextCandidate.region,
-                  languages: nextCandidate.languages,
-                  micEnabled: nextCandidate.micEnabled,
-                }}
-                userGames={nextCandidate.userGames}
-                translateX={nextCardTranslateX}
-                isTopCard={false}
-                isOnline={nextCandidate.isOnline}
-                isAvailableNow={nextCandidate.isAvailableNow}
-              />
-            </View>
-          ) : null}
+          <View style={styles.cardStack}>
+            {nextCandidate ? (
+              <View style={styles.nextCard}>
+                <SwipeCard
+                  width={CARD_WIDTH}
+                  height={CARD_HEIGHT}
+                  profile={{
+                    id: nextCandidate.id,
+                    nickname: nextCandidate.nickname,
+                    avatarUrl: nextCandidate.avatarUrl,
+                    age: nextCandidate.age,
+                    bio: nextCandidate.bio,
+                    region: nextCandidate.region,
+                    languages: nextCandidate.languages,
+                    micEnabled: nextCandidate.micEnabled,
+                  }}
+                  userGames={nextCandidate.userGames}
+                  translateX={nextCardTranslateX}
+                  isTopCard={false}
+                  isOnline={nextCandidate.isOnline}
+                  isAvailableNow={nextCandidate.isAvailableNow}
+                />
+              </View>
+            ) : null}
 
-          <GestureDetector gesture={panGesture}>
-            <Animated.View style={[styles.currentCard, cardStyle]}>
-              <SwipeCard
-                profile={{
-                  id: currentCandidate.id,
-                  nickname: currentCandidate.nickname,
-                  avatarUrl: currentCandidate.avatarUrl,
-                  age: currentCandidate.age,
-                  bio: currentCandidate.bio,
-                  region: currentCandidate.region,
-                  languages: currentCandidate.languages,
-                  micEnabled: currentCandidate.micEnabled,
-                }}
-                userGames={currentCandidate.userGames}
-                translateX={translateX}
-                isTopCard={true}
-                isOnline={currentCandidate.isOnline}
-                isAvailableNow={currentCandidate.isAvailableNow}
-              />
-            </Animated.View>
-          </GestureDetector>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.currentCard, cardStyle]}>
+                <SwipeCard
+                  width={CARD_WIDTH}
+                  height={CARD_HEIGHT}
+                  profile={{
+                    id: currentCandidate.id,
+                    nickname: currentCandidate.nickname,
+                    avatarUrl: currentCandidate.avatarUrl,
+                    age: currentCandidate.age,
+                    bio: currentCandidate.bio,
+                    region: currentCandidate.region,
+                    languages: currentCandidate.languages,
+                    micEnabled: currentCandidate.micEnabled,
+                  }}
+                  userGames={currentCandidate.userGames}
+                  translateX={translateX}
+                  isTopCard={true}
+                  isOnline={currentCandidate.isOnline}
+                  isAvailableNow={currentCandidate.isAvailableNow}
+                />
+              </Animated.View>
+            </GestureDetector>
+          </View>
         </View>
 
-        <View style={[styles.actions, { paddingBottom: tabBarHeight + Spacing.md }]}>
+        <View
+          style={[styles.actions, { paddingBottom: tabBarHeight + Spacing.md }]}
+        >
           <ActionButton
             icon="x"
             color={theme.danger}
@@ -369,12 +410,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing["4xl"],
+    paddingTop: Spacing.lg,
+  },
+  cardStack: {
+    width: "100%",
+    maxWidth: CARD_MAX_WIDTH + Spacing.md,
+    height: CARD_HEIGHT + 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   nextCard: {
     position: "absolute",
-    transform: [{ scale: 0.95 }],
-    opacity: 0.7,
+    transform: [{ scale: 0.94 }],
+    opacity: 0.55,
   },
   currentCard: {
     position: "absolute",
@@ -384,6 +433,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing["3xl"],
   },
 });

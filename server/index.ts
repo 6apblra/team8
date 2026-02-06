@@ -7,9 +7,11 @@ import { registerRoutes } from "./routes";
 import { setupWebSocket } from "./websocket";
 import * as fs from "fs";
 import * as path from "path";
+import { apiLimiter } from "./middleware";
+import { log } from "./logger";
+import pinoHttp from "pino-http";
 
 const app = express();
-const log = console.log;
 let sessionMiddleware!: express.RequestHandler;
 
 declare module "http" {
@@ -28,12 +30,19 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+    // Local development
+    origins.add("http://localhost:8081"); // Expo web
+    origins.add("http://localhost:19006"); // Expo web alternative
+    origins.add("http://localhost:3000"); // React dev server
+    origins.add("http://127.0.0.1:8081");
+    origins.add("http://127.0.0.1:19006");
+
+    if (process.env.EXPO_PUBLIC_DOMAIN) {
+      origins.add(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
     }
 
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+    if (process.env.EXPO_PUBLIC_DOMAINS) {
+      process.env.EXPO_PUBLIC_DOMAINS.split(",").forEach((d) => {
         origins.add(`https://${d.trim()}`);
       });
     }
@@ -46,7 +55,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 
@@ -67,7 +76,8 @@ function setupSession(app: express.Application) {
       tableName: "session",
       createTableIfMissing: true,
     }),
-    secret: process.env.SESSION_SECRET || "teamup-secret-key-change-in-production",
+    secret:
+      process.env.SESSION_SECRET || "teamup-secret-key-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -94,36 +104,7 @@ function setupBodyParsing(app: express.Application) {
 }
 
 function setupRequestLogging(app: express.Application) {
-  app.use((req, res, next) => {
-    const start = Date.now();
-    const path = req.path;
-    let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
-
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
-
-    res.on("finish", () => {
-      if (!path.startsWith("/api")) return;
-
-      const duration = Date.now() - start;
-
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    });
-
-    next();
-  });
+  app.use(pinoHttp({ logger: log }));
 }
 
 function getAppName(): string {
@@ -177,8 +158,8 @@ function serveLandingPage({
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
 
-  log(`baseUrl`, baseUrl);
-  log(`expsUrl`, expsUrl);
+  log.info(`baseUrl ${baseUrl}`);
+  log.info(`expsUrl ${expsUrl}`);
 
   const html = landingPageTemplate
     .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
@@ -199,7 +180,7 @@ function configureExpoAndLanding(app: express.Application) {
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
-  log("Serving static Expo files with dynamic manifest routing");
+  log.info("Serving static Expo files with dynamic manifest routing");
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
@@ -228,9 +209,13 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use(
+    "/uploads",
+    express.static(path.resolve(process.cwd(), "server", "uploads")),
+  );
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
-  log("Expo routing: Checking expo-platform header on / and /manifest");
+  log.info("Expo routing: Checking expo-platform header on / and /manifest");
 }
 
 function setupErrorHandler(app: express.Application) {
@@ -258,15 +243,18 @@ function setupErrorHandler(app: express.Application) {
 
   configureExpoAndLanding(app);
 
+  // API Rate Limiting
+  app.use("/api", apiLimiter);
+
   const server = await registerRoutes(app);
 
   setupWebSocket(server, sessionMiddleware);
-  log("WebSocket server attached to /ws");
+  log.info("WebSocket server attached to /ws");
 
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5001", 10);
   server.listen(port, "0.0.0.0", () => {
-    log(`express server serving on port ${port}`);
+    log.info(`express server serving on port ${port}`);
   });
 })();

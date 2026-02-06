@@ -20,6 +20,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   isPremium: boolean("is_premium").default(false),
+  pushToken: text("push_token"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -78,7 +79,7 @@ export const userGames = pgTable(
   (table) => [
     index("user_games_user_id_idx").on(table.userId),
     index("user_games_game_id_idx").on(table.gameId),
-  ]
+  ],
 );
 
 export const availabilityWindows = pgTable(
@@ -94,7 +95,7 @@ export const availabilityWindows = pgTable(
     startTime: text("start_time").notNull(),
     endTime: text("end_time").notNull(),
   },
-  (table) => [index("availability_user_id_idx").on(table.userId)]
+  (table) => [index("availability_user_id_idx").on(table.userId)],
 );
 
 export const swipes = pgTable(
@@ -116,7 +117,7 @@ export const swipes = pgTable(
     index("swipes_to_user_idx").on(table.toUserId, table.createdAt),
     index("swipes_from_user_idx").on(table.fromUserId, table.toUserId),
     index("swipes_from_created_idx").on(table.fromUserId, table.createdAt),
-  ]
+  ],
 );
 
 export const matches = pgTable(
@@ -137,7 +138,7 @@ export const matches = pgTable(
   (table) => [
     index("matches_user1_idx").on(table.user1Id),
     index("matches_user2_idx").on(table.user2Id),
-  ]
+  ],
 );
 
 export const messages = pgTable(
@@ -159,7 +160,7 @@ export const messages = pgTable(
   (table) => [
     index("messages_match_idx").on(table.matchId, table.createdAt),
     index("messages_sender_idx").on(table.senderId),
-  ]
+  ],
 );
 
 export const reports = pgTable("reports", {
@@ -192,7 +193,7 @@ export const blocks = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.blockedUserId] }),
     index("blocks_user_idx").on(table.userId),
-  ]
+  ],
 );
 
 export const dailySwipeCounts = pgTable(
@@ -208,7 +209,7 @@ export const dailySwipeCounts = pgTable(
     count: integer("count").default(0),
     swipeLimit: integer("swipe_limit").default(50),
   },
-  (table) => [index("daily_swipes_user_date_idx").on(table.userId, table.date)]
+  (table) => [index("daily_swipes_user_date_idx").on(table.userId, table.date)],
 );
 
 export const usersRelations = relations(users, ({ one, many }) => ({

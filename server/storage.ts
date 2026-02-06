@@ -36,7 +36,7 @@ export interface IStorage {
   createProfile(profile: InsertProfile): Promise<Profile>;
   updateProfile(
     userId: string,
-    profile: Partial<InsertProfile>
+    profile: Partial<InsertProfile>,
   ): Promise<Profile | undefined>;
 
   getGames(): Promise<Game[]>;
@@ -48,7 +48,7 @@ export interface IStorage {
   getAvailability(userId: string): Promise<AvailabilityWindow[]>;
   setAvailability(
     userId: string,
-    windows: { dayOfWeek: number; startTime: string; endTime: string }[]
+    windows: { dayOfWeek: number; startTime: string; endTime: string }[],
   ): Promise<void>;
 
   getFeedCandidates(
@@ -58,16 +58,18 @@ export interface IStorage {
       region?: string;
       language?: string;
       availableNowOnly?: boolean;
-    }
+    },
   ): Promise<
-    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[]; isOnline: boolean; isAvailableNow: boolean })[]
+    (Profile & {
+      userGames: UserGame[];
+      availability: AvailabilityWindow[];
+      isOnline: boolean;
+      isAvailableNow: boolean;
+    })[]
   >;
 
   createSwipe(swipe: InsertSwipe): Promise<Swipe>;
-  getSwipe(
-    fromUserId: string,
-    toUserId: string
-  ): Promise<Swipe | undefined>;
+  getSwipe(fromUserId: string, toUserId: string): Promise<Swipe | undefined>;
   checkMutualLike(user1Id: string, user2Id: string): Promise<boolean>;
 
   createMatch(user1Id: string, user2Id: string): Promise<Match>;
@@ -83,7 +85,7 @@ export interface IStorage {
     reporterId: string,
     reportedUserId: string,
     reason: string,
-    details?: string
+    details?: string,
   ): Promise<void>;
   blockUser(userId: string, blockedUserId: string): Promise<void>;
   isBlocked(userId: string, blockedUserId: string): Promise<boolean>;
@@ -96,7 +98,14 @@ export interface IStorage {
   updateLastSeen(userId: string): Promise<void>;
   setAvailableNow(userId: string, durationMinutes: number): Promise<void>;
   clearAvailableNow(userId: string): Promise<void>;
-  getOnlineUsers(userIds: string[]): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]>;
+  getOnlineUsers(
+    userIds: string[],
+  ): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]>;
+
+  // Push notifications
+  getPushToken(userId: string): Promise<string | null>;
+  setPushToken(userId: string, token: string): Promise<void>;
+  removePushToken(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -130,7 +139,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateProfile(
     userId: string,
-    profileData: Partial<InsertProfile>
+    profileData: Partial<InsertProfile>,
   ): Promise<Profile | undefined> {
     const [updated] = await db
       .update(profiles)
@@ -153,7 +162,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(userGames).where(eq(userGames.userId, userId));
   }
 
-  async setUserGames(userId: string, newGames: InsertUserGame[]): Promise<void> {
+  async setUserGames(
+    userId: string,
+    newGames: InsertUserGame[],
+  ): Promise<void> {
     await db.delete(userGames).where(eq(userGames.userId, userId));
     if (newGames.length > 0) {
       await db.insert(userGames).values(newGames);
@@ -169,7 +181,7 @@ export class DatabaseStorage implements IStorage {
 
   async setAvailability(
     userId: string,
-    windows: { dayOfWeek: number; startTime: string; endTime: string }[]
+    windows: { dayOfWeek: number; startTime: string; endTime: string }[],
   ): Promise<void> {
     await db
       .delete(availabilityWindows)
@@ -181,16 +193,26 @@ export class DatabaseStorage implements IStorage {
           dayOfWeek: w.dayOfWeek,
           startTime: w.startTime,
           endTime: w.endTime,
-        }))
+        })),
       );
     }
   }
 
   async getFeedCandidates(
     userId: string,
-    filters: { gameId?: string; region?: string; language?: string; availableNowOnly?: boolean }
+    filters: {
+      gameId?: string;
+      region?: string;
+      language?: string;
+      availableNowOnly?: boolean;
+    },
   ): Promise<
-    (Profile & { userGames: UserGame[]; availability: AvailabilityWindow[]; isOnline: boolean; isAvailableNow: boolean })[]
+    (Profile & {
+      userGames: UserGame[];
+      availability: AvailabilityWindow[];
+      isOnline: boolean;
+      isAvailableNow: boolean;
+    })[]
   > {
     const blockedIds = await this.getBlockedUsers(userId);
     const swipedUsers = await db
@@ -201,9 +223,10 @@ export class DatabaseStorage implements IStorage {
 
     const excludeIds = [...blockedIds, ...swipedIds, userId];
 
-    const baseCondition = excludeIds.length > 0
-      ? notInArray(profiles.userId, excludeIds)
-      : ne(profiles.userId, userId);
+    const baseCondition =
+      excludeIds.length > 0
+        ? notInArray(profiles.userId, excludeIds)
+        : ne(profiles.userId, userId);
 
     const whereCondition = filters.region
       ? and(baseCondition, eq(profiles.region, filters.region))
@@ -230,8 +253,14 @@ export class DatabaseStorage implements IStorage {
           return null;
         }
 
-        const isOnline = profile.lastSeenAt ? profile.lastSeenAt > fiveMinutesAgo : false;
-        const isAvailableNow = (profile.isAvailableNow && profile.availableUntil && profile.availableUntil > now) || false;
+        const isOnline = profile.lastSeenAt
+          ? profile.lastSeenAt > fiveMinutesAgo
+          : false;
+        const isAvailableNow =
+          (profile.isAvailableNow &&
+            profile.availableUntil &&
+            profile.availableUntil > now) ||
+          false;
 
         if (filters.availableNowOnly && !isAvailableNow) {
           return null;
@@ -244,7 +273,7 @@ export class DatabaseStorage implements IStorage {
           isOnline,
           isAvailableNow,
         };
-      })
+      }),
     );
 
     return result.filter((r) => r !== null) as (Profile & {
@@ -262,13 +291,13 @@ export class DatabaseStorage implements IStorage {
 
   async getSwipe(
     fromUserId: string,
-    toUserId: string
+    toUserId: string,
   ): Promise<Swipe | undefined> {
     const [swipe] = await db
       .select()
       .from(swipes)
       .where(
-        and(eq(swipes.fromUserId, fromUserId), eq(swipes.toUserId, toUserId))
+        and(eq(swipes.fromUserId, fromUserId), eq(swipes.toUserId, toUserId)),
       );
     return swipe || undefined;
   }
@@ -281,8 +310,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(swipes.fromUserId, user2Id),
           eq(swipes.toUserId, user1Id),
-          or(eq(swipes.swipeType, "like"), eq(swipes.swipeType, "super"))
-        )
+          or(eq(swipes.swipeType, "like"), eq(swipes.swipeType, "super")),
+        ),
       );
     return !!swipe;
   }
@@ -313,7 +342,7 @@ export class DatabaseStorage implements IStorage {
 
   async getMatchByUsers(
     user1Id: string,
-    user2Id: string
+    user2Id: string,
   ): Promise<Match | undefined> {
     const [match] = await db
       .select()
@@ -321,8 +350,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         or(
           and(eq(matches.user1Id, user1Id), eq(matches.user2Id, user2Id)),
-          and(eq(matches.user1Id, user2Id), eq(matches.user2Id, user1Id))
-        )
+          and(eq(matches.user1Id, user2Id), eq(matches.user2Id, user1Id)),
+        ),
       );
     return match || undefined;
   }
@@ -348,16 +377,14 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(messages)
       .set({ isRead: true })
-      .where(
-        and(eq(messages.matchId, matchId), ne(messages.senderId, userId))
-      );
+      .where(and(eq(messages.matchId, matchId), ne(messages.senderId, userId)));
   }
 
   async createReport(
     reporterId: string,
     reportedUserId: string,
     reason: string,
-    details?: string
+    details?: string,
   ): Promise<void> {
     await db.insert(reports).values({
       reporterId,
@@ -380,9 +407,15 @@ export class DatabaseStorage implements IStorage {
       .from(blocks)
       .where(
         or(
-          and(eq(blocks.userId, userId), eq(blocks.blockedUserId, blockedUserId)),
-          and(eq(blocks.userId, blockedUserId), eq(blocks.blockedUserId, userId))
-        )
+          and(
+            eq(blocks.userId, userId),
+            eq(blocks.blockedUserId, blockedUserId),
+          ),
+          and(
+            eq(blocks.userId, blockedUserId),
+            eq(blocks.blockedUserId, userId),
+          ),
+        ),
       );
     return !!block;
   }
@@ -410,7 +443,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(dailySwipeCounts)
       .where(
-        and(eq(dailySwipeCounts.userId, userId), eq(dailySwipeCounts.date, today))
+        and(
+          eq(dailySwipeCounts.userId, userId),
+          eq(dailySwipeCounts.date, today),
+        ),
       );
     return record?.count || 0;
   }
@@ -421,7 +457,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(dailySwipeCounts)
       .where(
-        and(eq(dailySwipeCounts.userId, userId), eq(dailySwipeCounts.date, today))
+        and(
+          eq(dailySwipeCounts.userId, userId),
+          eq(dailySwipeCounts.date, today),
+        ),
       );
 
     if (existing) {
@@ -452,14 +491,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(profiles.userId, userId));
   }
 
-  async setAvailableNow(userId: string, durationMinutes: number): Promise<void> {
+  async setAvailableNow(
+    userId: string,
+    durationMinutes: number,
+  ): Promise<void> {
     const availableUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
     await db
       .update(profiles)
       .set({
         isAvailableNow: true,
         availableUntil,
-        lastSeenAt: new Date()
+        lastSeenAt: new Date(),
       })
       .where(eq(profiles.userId, userId));
   }
@@ -469,12 +511,14 @@ export class DatabaseStorage implements IStorage {
       .update(profiles)
       .set({
         isAvailableNow: false,
-        availableUntil: null
+        availableUntil: null,
       })
       .where(eq(profiles.userId, userId));
   }
 
-  async getOnlineUsers(userIds: string[]): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]> {
+  async getOnlineUsers(
+    userIds: string[],
+  ): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]> {
     if (userIds.length === 0) return [];
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -491,14 +535,36 @@ export class DatabaseStorage implements IStorage {
       .where(
         userIds.length === 1
           ? eq(profiles.userId, userIds[0])
-          : sql`${profiles.userId} = ANY(${userIds})`
+          : sql`${profiles.userId} = ANY(${userIds})`,
       );
 
     return userProfiles.map((p) => ({
       userId: p.userId,
       isOnline: p.lastSeenAt ? p.lastSeenAt > fiveMinutesAgo : false,
-      isAvailableNow: (p.isAvailableNow && p.availableUntil && p.availableUntil > now) || false,
+      isAvailableNow:
+        (p.isAvailableNow && p.availableUntil && p.availableUntil > now) ||
+        false,
     }));
+  }
+
+  // Push notifications
+  async getPushToken(userId: string): Promise<string | null> {
+    const [user] = await db
+      .select({ pushToken: users.pushToken })
+      .from(users)
+      .where(eq(users.id, userId));
+    return user?.pushToken || null;
+  }
+
+  async setPushToken(userId: string, token: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ pushToken: token })
+      .where(eq(users.id, userId));
+  }
+
+  async removePushToken(userId: string): Promise<void> {
+    await db.update(users).set({ pushToken: null }).where(eq(users.id, userId));
   }
 }
 
