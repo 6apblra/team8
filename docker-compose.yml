@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: teamup_db
       POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=100"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,51 +20,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    networks:
-      - teamup_network
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      cache_from:
-        - teamup_backend:latest
-    image: teamup_backend:latest
-    container_name: teamup_backend
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql://teamup:teamup123@db:5432/teamup_db
-      SECRET_KEY: teamup-secret-key-change-in-production
-      LOG_LEVEL: info
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - /app/.venv
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 15s
-    command: >
-      sh -c "
-        alembic upgrade head && \
-        python seed.py 2>/dev/null || true && \
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-      "
-    networks:
-      - teamup_network
 
 volumes:
   postgres_data:
     driver: local
-
-networks:
-  teamup_network:
-    driver: bridge
-
-
