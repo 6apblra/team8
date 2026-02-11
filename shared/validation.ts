@@ -88,6 +88,7 @@ export const reportSchema = z.object({
     "spam",
     "inappropriate_content",
     "cheating",
+    "fake_profile",
     "other",
   ]),
   details: z.string().max(500, "Details too long").optional(),

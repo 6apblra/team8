@@ -764,7 +764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({ success: true });
     } catch (error) {
-      console.error("Clear available error:", error);
+      log.error({ err: error }, "Clear available error");
       return res.status(500).json({ error: "Failed to clear availability" });
     }
   });
@@ -783,7 +783,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json(statuses);
     } catch (error) {
-      console.error("Activity status error:", error);
+      log.error({ err: error }, "Activity status error");
       return res.status(500).json({ error: "Failed to get activity status" });
     }
   });

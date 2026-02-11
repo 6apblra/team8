@@ -7,13 +7,15 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { useAuth, type Profile } from "@/lib/auth-context";
-import { apiRequest } from "@/lib/api-client";
+import { apiRequest, getBaseUrl } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
@@ -39,11 +41,56 @@ export default function EditProfileScreen() {
   );
   const [micEnabled, setMicEnabled] = useState(profile?.micEnabled ?? true);
   const [discordTag, setDiscordTag] = useState(profile?.discordTag || "");
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    profile?.avatarUrl ? `${getBaseUrl()}${profile.avatarUrl}` : null,
+  );
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    setUploadingAvatar(true);
+    try {
+      const token = await (await import("@/lib/api-client")).getToken();
+      const formData = new FormData();
+      const uri = asset.uri;
+      const ext = uri.split(".").pop() || "jpg";
+      formData.append("avatar", {
+        uri,
+        name: `avatar.${ext}`,
+        type: `image/${ext === "jpg" ? "jpeg" : ext}`,
+      } as any);
+
+      const res = await fetch(`${getBaseUrl()}/api/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      setAvatarUri(`${getBaseUrl()}${data.avatarUrl}`);
+      if (data.profile) setProfile(data.profile);
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+    } catch {
+      Alert.alert("Error", "Failed to upload avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       const method = profile ? "PUT" : "POST";
-      const endpoint = profile ? `/profile/${user?.id}` : "/profile";
+      const endpoint = profile ? `/api/profile/${user?.id}` : "/api/profile";
 
       const response = await apiRequest<Profile>(method, endpoint, data);
       // apiRequest returns parsed JSON if content-type is json, no need to call .json() again
@@ -101,6 +148,43 @@ export default function EditProfileScreen() {
           },
         ]}
       >
+        <View style={styles.avatarSection}>
+          <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
+            <View style={styles.avatarContainer}>
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.avatar,
+                    styles.avatarPlaceholder,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
+                >
+                  <Feather name="user" size={40} color={theme.textSecondary} />
+                </View>
+              )}
+              <View
+                style={[
+                  styles.avatarEditBadge,
+                  { backgroundColor: theme.primary },
+                ]}
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Feather name="camera" size={14} color="#FFFFFF" />
+                )}
+              </View>
+            </View>
+          </Pressable>
+          <ThemedText style={styles.avatarHint}>Tap to change photo</ThemedText>
+        </View>
+
         <View style={styles.formGroup}>
           <ThemedText style={styles.label}>Nickname *</ThemedText>
           <TextInput
@@ -264,6 +348,38 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: "#FFFFFF",
+  },
+  avatarSection: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  avatarContainer: {
+    position: "relative",
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0A0E1A",
+  },
+  avatarHint: {
+    fontSize: 12,
+    color: "#A0A8B8",
   },
   saveButton: {
     marginTop: Spacing.lg,

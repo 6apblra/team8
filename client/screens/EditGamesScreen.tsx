@@ -75,7 +75,7 @@ export default function EditGamesScreen() {
   const updateMutation = useMutation({
     mutationFn: async (games: Omit<UserGame, "id" | "userId">[]) => {
       // Server expects POST /api/user-games (userId taken from session/token)
-      return apiRequest("POST", "/user-games", { games });
+      return apiRequest("POST", "/api/user-games", { games });
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

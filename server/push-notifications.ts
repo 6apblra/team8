@@ -1,5 +1,6 @@
-import { Expo, ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import { storage } from "./storage";
+import { log } from "./logger";
 
 // Create a new Expo SDK client
 const expo = new Expo();
@@ -21,13 +22,13 @@ export async function sendPushNotification(
     const pushToken = await storage.getPushToken(userId);
 
     if (!pushToken) {
-      console.log(`No push token found for user ${userId}`);
+      log.info({ userId }, "No push token found for user");
       return false;
     }
 
     // Check if the push token is valid
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`Invalid push token for user ${userId}: ${pushToken}`);
+      log.error({ userId, pushToken }, "Invalid push token for user");
       return false;
     }
 
@@ -46,7 +47,7 @@ export async function sendPushNotification(
 
       for (const ticket of ticketChunk) {
         if (ticket.status === "error") {
-          console.error(`Push notification error:`, ticket.message);
+          log.error({ message: ticket.message }, "Push notification error");
           if (ticket.details?.error === "DeviceNotRegistered") {
             // Token is no longer valid, remove it
             await storage.removePushToken(userId);
@@ -57,7 +58,7 @@ export async function sendPushNotification(
 
     return true;
   } catch (error) {
-    console.error("Failed to send push notification:", error);
+    log.error({ err: error }, "Failed to send push notification");
     return false;
   }
 }
@@ -95,7 +96,7 @@ export async function sendPushNotifications(
     try {
       await expo.sendPushNotificationsAsync(chunk);
     } catch (error) {
-      console.error("Failed to send push notifications:", error);
+      log.error({ err: error }, "Failed to send push notifications");
     }
   }
 }

@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server, IncomingMessage } from "node:http";
 import { storage } from "./storage";
 import { verifyToken } from "./auth-utils";
+import { log } from "./logger";
 
 interface ChatMessage {
   type: "typing" | "stop_typing" | "read";
@@ -53,7 +54,7 @@ export function setupWebSocket(server: Server, sessionParser: any) {
         return;
       }
 
-      console.log(`WebSocket connected: ${userId}`);
+      log.info(`WebSocket connected: ${userId}`);
 
       const userMatches = await storage.getMatches(userId!);
       const matchIds = new Set(userMatches.map((m) => m.id));
@@ -81,7 +82,7 @@ export function setupWebSocket(server: Server, sessionParser: any) {
           const message: ChatMessage = JSON.parse(data.toString());
           await handleMessage(userId!, message);
         } catch (error) {
-          console.error("WebSocket message error:", error);
+          log.error({ err: error }, "WebSocket message error");
           ws.send(
             JSON.stringify({
               type: "error",
@@ -93,7 +94,7 @@ export function setupWebSocket(server: Server, sessionParser: any) {
 
       ws.on("close", () => {
         if (userId) {
-          console.log(`WebSocket disconnected: ${userId}`);
+          log.info(`WebSocket disconnected: ${userId}`);
           const conn = connections.get(userId);
           if (conn) {
             for (const matchId of conn.matchIds) {
@@ -105,7 +106,7 @@ export function setupWebSocket(server: Server, sessionParser: any) {
       });
 
       ws.on("error", (error: Error) => {
-        console.error(`WebSocket error for ${userId}:`, error);
+        log.error({ err: error, userId }, "WebSocket error");
       });
     };
 

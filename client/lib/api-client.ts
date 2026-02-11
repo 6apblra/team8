@@ -2,6 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001";
 
+export function getBaseUrl(): string {
+  return API_BASE_URL;
+}
+
 const TOKEN_KEY = "@teamup_token";
 const REFRESH_TOKEN_KEY = "@teamup_refresh_token";
 
