@@ -28,13 +28,67 @@ import { db } from "./db";
 import { eq, and, or, sql, desc, ne, notInArray } from "drizzle-orm";
 
 const RANK_ORDER: Record<string, string[]> = {
-  valorant: ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal", "Radiant"],
-  cs2: ["Silver", "Gold Nova", "Master Guardian", "Distinguished", "Legendary Eagle", "Supreme", "Global Elite"],
-  dota2: ["Herald", "Guardian", "Crusader", "Archon", "Legend", "Ancient", "Divine", "Immortal"],
+  valorant: [
+    "Iron",
+    "Bronze",
+    "Silver",
+    "Gold",
+    "Platinum",
+    "Diamond",
+    "Ascendant",
+    "Immortal",
+    "Radiant",
+  ],
+  cs2: [
+    "Silver",
+    "Gold Nova",
+    "Master Guardian",
+    "Distinguished",
+    "Legendary Eagle",
+    "Supreme",
+    "Global Elite",
+  ],
+  dota2: [
+    "Herald",
+    "Guardian",
+    "Crusader",
+    "Archon",
+    "Legend",
+    "Ancient",
+    "Divine",
+    "Immortal",
+  ],
   fortnite: ["Open", "Contender", "Champion", "Unreal"],
-  lol: ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond", "Master", "Grandmaster", "Challenger"],
-  wot: ["Beginner", "Average", "Good", "Very Good", "Great", "Unicum", "Super Unicum"],
-  apex: ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Apex Predator"],
+  lol: [
+    "Iron",
+    "Bronze",
+    "Silver",
+    "Gold",
+    "Platinum",
+    "Emerald",
+    "Diamond",
+    "Master",
+    "Grandmaster",
+    "Challenger",
+  ],
+  wot: [
+    "Beginner",
+    "Average",
+    "Good",
+    "Very Good",
+    "Great",
+    "Unicum",
+    "Super Unicum",
+  ],
+  apex: [
+    "Bronze",
+    "Silver",
+    "Gold",
+    "Platinum",
+    "Diamond",
+    "Master",
+    "Apex Predator",
+  ],
 };
 
 function getRankIndex(gameId: string, rank: string | null): number {
@@ -268,23 +322,29 @@ export class DatabaseStorage implements IStorage {
         const availability = await this.getAvailability(profile.userId);
 
         if (filters.gameId) {
-          const gameIds = Array.isArray(filters.gameId) ? filters.gameId : [filters.gameId];
+          const gameIds = Array.isArray(filters.gameId)
+            ? filters.gameId
+            : [filters.gameId];
           if (!candidateGames.some((g) => gameIds.includes(g.gameId))) {
             return null;
           }
         }
 
         if (filters.region) {
-          const regions = Array.isArray(filters.region) ? filters.region : [filters.region];
+          const regions = Array.isArray(filters.region)
+            ? filters.region
+            : [filters.region];
           if (!regions.includes(profile.region)) {
             return null;
           }
         }
 
         if (filters.language) {
-          const filterLang = Array.isArray(filters.language) ? filters.language : [filters.language];
+          const filterLang = Array.isArray(filters.language)
+            ? filters.language
+            : [filters.language];
           const profileLangs = (profile.languages as string[]) || [];
-          if (!filterLang.some(fl => profileLangs.includes(fl))) {
+          if (!filterLang.some((fl) => profileLangs.includes(fl))) {
             return null;
           }
         }
@@ -296,20 +356,28 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (filters.playstyle) {
-          const playstyles = Array.isArray(filters.playstyle) ? filters.playstyle : [filters.playstyle];
-          if (!candidateGames.some(g => g.playstyle && playstyles.includes(g.playstyle))) {
+          const playstyles = Array.isArray(filters.playstyle)
+            ? filters.playstyle
+            : [filters.playstyle];
+          if (
+            !candidateGames.some(
+              (g) => g.playstyle && playstyles.includes(g.playstyle),
+            )
+          ) {
             return null;
           }
         }
 
         if (filters.rankMin || filters.rankMax) {
           const filterGameIds = filters.gameId
-            ? (Array.isArray(filters.gameId) ? filters.gameId : [filters.gameId])
+            ? Array.isArray(filters.gameId)
+              ? filters.gameId
+              : [filters.gameId]
             : null;
           const matchingGames = filterGameIds
-            ? candidateGames.filter(g => filterGameIds.includes(g.gameId))
+            ? candidateGames.filter((g) => filterGameIds.includes(g.gameId))
             : candidateGames;
-          const passesRank = matchingGames.some(g => {
+          const passesRank = matchingGames.some((g) => {
             const idx = getRankIndex(g.gameId, g.rank);
             if (idx === -1) return false;
             if (filters.rankMin) {

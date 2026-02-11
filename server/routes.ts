@@ -106,7 +106,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.userId = user.id;
         const token = generateToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
-        return res.json({ user: { id: user.id, email: user.email }, token, refreshToken });
+        return res.json({
+          user: { id: user.id, email: user.email },
+          token,
+          refreshToken,
+        });
       } catch (error) {
         log.error({ err: error }, "Register error");
         return res.status(500).json({ error: "Registration failed" });
@@ -465,7 +469,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = req.session.userId!;
-        const { gameId, region, language, availableNowOnly, micRequired, playstyle, rankMin, rankMax } = req.query as any;
+        const {
+          gameId,
+          region,
+          language,
+          availableNowOnly,
+          micRequired,
+          playstyle,
+          rankMin,
+          rankMax,
+        } = req.query as any;
 
         const candidates = await storage.getFeedCandidates(userId, {
           gameId,
@@ -528,8 +541,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               const fromProfile = await storage.getProfile(fromUserId);
               const toProfile = await storage.getProfile(toUserId);
-              if (toProfile) notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
-              if (fromProfile) notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
+              if (toProfile)
+                notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
+              if (fromProfile)
+                notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
             }
           }
         }
@@ -656,7 +671,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const senderProfile = await storage.getProfile(senderId);
         if (senderProfile) {
-          notifyNewMessage(receiverId, senderProfile.nickname, content).catch(() => {});
+          notifyNewMessage(receiverId, senderProfile.nickname, content).catch(
+            () => {},
+          );
         }
 
         return res.json(message);

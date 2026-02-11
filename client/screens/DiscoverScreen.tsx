@@ -1,5 +1,11 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, StyleSheet, Dimensions, ActivityIndicator, Alert } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
@@ -92,13 +98,13 @@ export default function DiscoverScreen() {
     let path = "/api/feed";
     const params = new URLSearchParams();
     if (filters?.games?.length) {
-      filters.games.forEach(g => params.append("gameId", g));
+      filters.games.forEach((g) => params.append("gameId", g));
     }
     if (filters?.regions?.length) {
-      filters.regions.forEach(r => params.append("region", r));
+      filters.regions.forEach((r) => params.append("region", r));
     }
     if (filters?.languages?.length) {
-      filters.languages.forEach(l => params.append("language", l));
+      filters.languages.forEach((l) => params.append("language", l));
     }
     if (filters?.availableNowOnly) {
       params.set("availableNowOnly", "true");
@@ -107,7 +113,7 @@ export default function DiscoverScreen() {
       params.set("micRequired", "true");
     }
     if (filters?.playstyles?.length) {
-      filters.playstyles.forEach(p => params.append("playstyle", p));
+      filters.playstyles.forEach((p) => params.append("playstyle", p));
     }
     const qs = params.toString();
     if (qs) {

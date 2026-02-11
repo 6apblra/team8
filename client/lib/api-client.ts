@@ -99,7 +99,8 @@ export async function apiRequest<T>(
     let errorMessage = errorText;
     try {
       const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorJson.detail || errorJson.message || errorText;
+      errorMessage =
+        errorJson.error || errorJson.detail || errorJson.message || errorText;
     } catch {
       // Keep original error text
     }

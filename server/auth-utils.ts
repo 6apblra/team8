@@ -6,18 +6,23 @@ const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
 const tokenBlacklist = new Set<string>();
 
-setInterval(() => {
-  for (const token of tokenBlacklist) {
-    try {
-      jwt.verify(token, JWT_SECRET);
-    } catch {
-      tokenBlacklist.delete(token);
+setInterval(
+  () => {
+    for (const token of tokenBlacklist) {
+      try {
+        jwt.verify(token, JWT_SECRET);
+      } catch {
+        tokenBlacklist.delete(token);
+      }
     }
-  }
-}, 60 * 60 * 1000);
+  },
+  60 * 60 * 1000,
+);
 
 export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+  return jwt.sign({ userId }, JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  });
 }
 
 export function generateRefreshToken(userId: string): string {

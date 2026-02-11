@@ -152,7 +152,10 @@ export default function OnboardingScreen() {
         });
       } catch (gamesError) {
         console.error("Failed to save games:", gamesError);
-        Alert.alert("Warning", "Profile created but games could not be saved. You can add them later in settings.");
+        Alert.alert(
+          "Warning",
+          "Profile created but games could not be saved. You can add them later in settings.",
+        );
       }
 
       const windows = selectedDays.flatMap((day) =>
@@ -170,7 +173,10 @@ export default function OnboardingScreen() {
         await apiRequest("POST", `/api/availability/${user.id}`, { windows });
       } catch (availError) {
         console.error("Failed to save availability:", availError);
-        Alert.alert("Warning", "Profile created but schedule could not be saved. You can set it later.");
+        Alert.alert(
+          "Warning",
+          "Profile created but schedule could not be saved. You can set it later.",
+        );
       }
 
       setProfile(createdProfile);
