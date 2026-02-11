@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server, IncomingMessage } from "node:http";
 import { storage } from "./storage";
+import { verifyToken } from "./auth-utils";
 
 interface ChatMessage {
   type: "typing" | "stop_typing" | "read";
@@ -36,14 +37,22 @@ export function setupWebSocket(server: Server, sessionParser: any) {
   wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
     let userId: string | null = null;
 
-    sessionParser(req, {} as any, async () => {
-      const session = (req as any).session;
-      if (!session?.userId) {
+    const url = new URL(req.url || "", "http://localhost");
+    const token = url.searchParams.get("token");
+
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded) {
+        userId = decoded.userId;
+      }
+    }
+
+    const proceed = async () => {
+      if (!userId) {
         ws.close(4001, "Unauthorized");
         return;
       }
 
-      userId = session.userId;
       console.log(`WebSocket connected: ${userId}`);
 
       const userMatches = await storage.getMatches(userId!);
@@ -98,7 +107,19 @@ export function setupWebSocket(server: Server, sessionParser: any) {
       ws.on("error", (error: Error) => {
         console.error(`WebSocket error for ${userId}:`, error);
       });
-    });
+    };
+
+    if (userId) {
+      await proceed();
+    } else {
+      sessionParser(req, {} as any, async () => {
+        const session = (req as any).session;
+        if (session?.userId) {
+          userId = session.userId;
+        }
+        await proceed();
+      });
+    }
   });
 
   return wss;

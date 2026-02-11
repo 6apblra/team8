@@ -117,8 +117,6 @@ export default function EditGamesScreen() {
   };
 
   const handleSave = () => {
-    console.log("Save button pressed");
-    console.log("Selected games:", selectedGames);
     if (selectedGames.length === 0) {
       Alert.alert("Error", "Please select at least one game");
       return;
@@ -132,7 +130,6 @@ export default function EditGamesScreen() {
       platform,
       isPrimary: index === 0,
     }));
-    console.log("Sending games data:", JSON.stringify(gamesData, null, 2));
 
     updateMutation.mutate(gamesData);
   };
@@ -357,7 +354,6 @@ export default function EditGamesScreen() {
       >
         <Pressable
           onPress={() => {
-            console.log("Direct onPress fired");
             handleSave();
           }}
           style={({ pressed }) => [

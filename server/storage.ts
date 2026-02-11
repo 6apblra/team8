@@ -27,6 +27,23 @@ import {
 import { db } from "./db";
 import { eq, and, or, sql, desc, ne, notInArray } from "drizzle-orm";
 
+const RANK_ORDER: Record<string, string[]> = {
+  valorant: ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal", "Radiant"],
+  cs2: ["Silver", "Gold Nova", "Master Guardian", "Distinguished", "Legendary Eagle", "Supreme", "Global Elite"],
+  dota2: ["Herald", "Guardian", "Crusader", "Archon", "Legend", "Ancient", "Divine", "Immortal"],
+  fortnite: ["Open", "Contender", "Champion", "Unreal"],
+  lol: ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond", "Master", "Grandmaster", "Challenger"],
+  wot: ["Beginner", "Average", "Good", "Very Good", "Great", "Unicum", "Super Unicum"],
+  apex: ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Apex Predator"],
+};
+
+function getRankIndex(gameId: string, rank: string | null): number {
+  if (!rank) return -1;
+  const ranks = RANK_ORDER[gameId];
+  if (!ranks) return -1;
+  return ranks.indexOf(rank);
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -54,9 +71,13 @@ export interface IStorage {
   getFeedCandidates(
     userId: string,
     filters: {
-      gameId?: string;
-      region?: string;
-      language?: string;
+      gameId?: string | string[];
+      region?: string | string[];
+      language?: string | string[];
+      micRequired?: boolean;
+      playstyle?: string | string[];
+      rankMin?: string;
+      rankMax?: string;
       availableNowOnly?: boolean;
     },
   ): Promise<
@@ -201,9 +222,13 @@ export class DatabaseStorage implements IStorage {
   async getFeedCandidates(
     userId: string,
     filters: {
-      gameId?: string;
-      region?: string;
-      language?: string;
+      gameId?: string | string[];
+      region?: string | string[];
+      language?: string | string[];
+      micRequired?: boolean;
+      playstyle?: string | string[];
+      rankMin?: string;
+      rankMax?: string;
       availableNowOnly?: boolean;
     },
   ): Promise<
@@ -228,14 +253,10 @@ export class DatabaseStorage implements IStorage {
         ? notInArray(profiles.userId, excludeIds)
         : ne(profiles.userId, userId);
 
-    const whereCondition = filters.region
-      ? and(baseCondition, eq(profiles.region, filters.region))
-      : baseCondition;
-
     const candidateProfiles = await db
       .select()
       .from(profiles)
-      .where(whereCondition!)
+      .where(baseCondition!)
       .limit(50);
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -246,11 +267,62 @@ export class DatabaseStorage implements IStorage {
         const candidateGames = await this.getUserGames(profile.userId);
         const availability = await this.getAvailability(profile.userId);
 
-        if (
-          filters.gameId &&
-          !candidateGames.some((g) => g.gameId === filters.gameId)
-        ) {
-          return null;
+        if (filters.gameId) {
+          const gameIds = Array.isArray(filters.gameId) ? filters.gameId : [filters.gameId];
+          if (!candidateGames.some((g) => gameIds.includes(g.gameId))) {
+            return null;
+          }
+        }
+
+        if (filters.region) {
+          const regions = Array.isArray(filters.region) ? filters.region : [filters.region];
+          if (!regions.includes(profile.region)) {
+            return null;
+          }
+        }
+
+        if (filters.language) {
+          const filterLang = Array.isArray(filters.language) ? filters.language : [filters.language];
+          const profileLangs = (profile.languages as string[]) || [];
+          if (!filterLang.some(fl => profileLangs.includes(fl))) {
+            return null;
+          }
+        }
+
+        if (filters.micRequired) {
+          if (!profile.micEnabled) {
+            return null;
+          }
+        }
+
+        if (filters.playstyle) {
+          const playstyles = Array.isArray(filters.playstyle) ? filters.playstyle : [filters.playstyle];
+          if (!candidateGames.some(g => g.playstyle && playstyles.includes(g.playstyle))) {
+            return null;
+          }
+        }
+
+        if (filters.rankMin || filters.rankMax) {
+          const filterGameIds = filters.gameId
+            ? (Array.isArray(filters.gameId) ? filters.gameId : [filters.gameId])
+            : null;
+          const matchingGames = filterGameIds
+            ? candidateGames.filter(g => filterGameIds.includes(g.gameId))
+            : candidateGames;
+          const passesRank = matchingGames.some(g => {
+            const idx = getRankIndex(g.gameId, g.rank);
+            if (idx === -1) return false;
+            if (filters.rankMin) {
+              const minIdx = getRankIndex(g.gameId, filters.rankMin);
+              if (minIdx !== -1 && idx < minIdx) return false;
+            }
+            if (filters.rankMax) {
+              const maxIdx = getRankIndex(g.gameId, filters.rankMax);
+              if (maxIdx !== -1 && idx > maxIdx) return false;
+            }
+            return true;
+          });
+          if (!passesRank) return null;
         }
 
         const isOnline = profile.lastSeenAt

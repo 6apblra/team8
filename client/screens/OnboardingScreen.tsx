@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -132,7 +133,7 @@ export default function OnboardingScreen() {
 
       const createdProfile = await apiRequest<Profile>(
         "POST",
-        "/profile",
+        "/api/profile",
         profileData,
       );
 
@@ -145,9 +146,14 @@ export default function OnboardingScreen() {
         isPrimary: gameId === selectedGames[0],
       }));
 
-      await apiRequest("POST", "/user-games", {
-        games: gamesData,
-      });
+      try {
+        await apiRequest("POST", `/api/user-games/${user.id}`, {
+          games: gamesData,
+        });
+      } catch (gamesError) {
+        console.error("Failed to save games:", gamesError);
+        Alert.alert("Warning", "Profile created but games could not be saved. You can add them later in settings.");
+      }
 
       const windows = selectedDays.flatMap((day) =>
         selectedTimeSlots.map((slot) => {
@@ -160,11 +166,17 @@ export default function OnboardingScreen() {
         }),
       );
 
-      await apiRequest("POST", "/availability", { windows });
+      try {
+        await apiRequest("POST", `/api/availability/${user.id}`, { windows });
+      } catch (availError) {
+        console.error("Failed to save availability:", availError);
+        Alert.alert("Warning", "Profile created but schedule could not be saved. You can set it later.");
+      }
 
       setProfile(createdProfile);
-    } catch (error) {
-      console.error("Onboarding error:", error);
+    } catch (error: any) {
+      const msg = error?.message || "Something went wrong";
+      Alert.alert("Error", `Failed to create profile: ${msg}`);
     } finally {
       setLoading(false);
     }

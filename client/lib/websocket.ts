@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { getToken } from "./api-client";
 
-// TODO: Update this to your backend URL
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001/api";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001";
 
 interface WebSocketMessage {
   type: string;
@@ -18,6 +16,8 @@ class WebSocketManager {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private isConnecting = false;
   private shouldReconnect = true;
+  private reconnectAttempts = 0;
+  private activeTypingMatches: Set<string> = new Set();
 
   async connect(token?: string | null) {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
@@ -45,6 +45,7 @@ class WebSocketManager {
       this.ws.onopen = () => {
         console.log("WebSocket connected");
         this.isConnecting = false;
+        this.reconnectAttempts = 0;
       };
 
       this.ws.onmessage = (event) => {
@@ -82,11 +83,14 @@ class WebSocketManager {
       clearTimeout(this.reconnectTimeout);
     }
 
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+
     this.reconnectTimeout = setTimeout(async () => {
       if (this.shouldReconnect) {
         await this.connect();
       }
-    }, 3000);
+    }, delay);
   }
 
   disconnect() {
@@ -95,6 +99,10 @@ class WebSocketManager {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+    this.activeTypingMatches.forEach((matchId) => {
+      this.send({ type: "stop_typing", matchId });
+    });
+    this.activeTypingMatches.clear();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -104,6 +112,11 @@ class WebSocketManager {
   send(message: WebSocketMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
+      if (message.type === "typing" && message.matchId) {
+        this.activeTypingMatches.add(message.matchId);
+      } else if (message.type === "stop_typing" && message.matchId) {
+        this.activeTypingMatches.delete(message.matchId);
+      }
     } else {
       console.warn("WebSocket not connected, cannot send message");
     }

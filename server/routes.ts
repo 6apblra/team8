@@ -12,8 +12,15 @@ import {
   updatePresence,
 } from "./websocket";
 import { avatarUpload, getUploadUrl } from "./upload";
+import { notifyNewMatch, notifyNewMessage } from "./push-notifications";
 import { validateRequest, authLimiter } from "./middleware";
-import { generateToken, verifyToken } from "./auth-utils";
+import {
+  generateToken,
+  generateRefreshToken,
+  verifyToken,
+  verifyRefreshToken,
+  blacklistToken,
+} from "./auth-utils";
 import { log } from "./logger";
 import {
   registerSchema,
@@ -98,7 +105,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         req.session.userId = user.id;
         const token = generateToken(user.id);
-        return res.json({ user: { id: user.id, email: user.email }, token });
+        const refreshToken = generateRefreshToken(user.id);
+        return res.json({ user: { id: user.id, email: user.email }, token, refreshToken });
       } catch (error) {
         log.error({ err: error }, "Register error");
         return res.status(500).json({ error: "Registration failed" });
@@ -126,11 +134,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         req.session.userId = user.id;
         const token = generateToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
 
         const profile = await storage.getProfile(user.id);
         return res.json({
           user: { id: user.id, email: user.email, isPremium: user.isPremium },
           token,
+          refreshToken,
           profile,
           hasProfile: !!profile,
         });
@@ -142,6 +152,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/auth/logout", (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      if (token) blacklistToken(token);
+    }
+    const { refreshToken } = req.body || {};
+    if (refreshToken) blacklistToken(refreshToken);
+
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: "Logout failed" });
@@ -149,6 +167,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.clearCookie("connect.sid");
       return res.json({ success: true });
     });
+  });
+
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token required" });
+      }
+
+      const decoded = verifyRefreshToken(refreshToken);
+      if (!decoded) {
+        return res.status(401).json({ error: "Invalid refresh token" });
+      }
+
+      const user = await storage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      blacklistToken(refreshToken);
+
+      const newToken = generateToken(user.id);
+      const newRefreshToken = generateRefreshToken(user.id);
+
+      return res.json({ token: newToken, refreshToken: newRefreshToken });
+    } catch (error) {
+      log.error({ err: error }, "Refresh token error");
+      return res.status(500).json({ error: "Token refresh failed" });
+    }
   });
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {
@@ -418,12 +465,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = req.session.userId!;
-        const { gameId, region, language, availableNowOnly } = req.query as any;
+        const { gameId, region, language, availableNowOnly, micRequired, playstyle, rankMin, rankMax } = req.query as any;
 
         const candidates = await storage.getFeedCandidates(userId, {
           gameId,
           region,
           language,
+          micRequired,
+          playstyle,
+          rankMin,
+          rankMax,
           availableNowOnly,
         });
 
@@ -474,6 +525,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!existing) {
               match = await storage.createMatch(fromUserId, toUserId);
               addMatchToConnections(fromUserId, toUserId, match.id);
+
+              const fromProfile = await storage.getProfile(fromUserId);
+              const toProfile = await storage.getProfile(toUserId);
+              if (toProfile) notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
+              if (fromProfile) notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
             }
           }
         }
@@ -597,6 +653,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const receiverId =
           match.user1Id === senderId ? match.user2Id : match.user1Id;
         broadcastNewMessage(matchId, senderId, receiverId, message);
+
+        const senderProfile = await storage.getProfile(senderId);
+        if (senderProfile) {
+          notifyNewMessage(receiverId, senderProfile.nickname, content).catch(() => {});
+        }
 
         return res.json(message);
       } catch (error) {

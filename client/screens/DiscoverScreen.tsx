@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Dimensions, ActivityIndicator, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
@@ -91,17 +91,23 @@ export default function DiscoverScreen() {
   const buildFeedQueryKey = useCallback(() => {
     let path = "/api/feed";
     const params = new URLSearchParams();
-    if (filters?.games?.length === 1) {
-      params.set("gameId", filters.games[0]);
+    if (filters?.games?.length) {
+      filters.games.forEach(g => params.append("gameId", g));
     }
-    if (filters?.regions?.length === 1) {
-      params.set("region", filters.regions[0]);
+    if (filters?.regions?.length) {
+      filters.regions.forEach(r => params.append("region", r));
     }
-    if (filters?.languages?.length === 1) {
-      params.set("language", filters.languages[0]);
+    if (filters?.languages?.length) {
+      filters.languages.forEach(l => params.append("language", l));
     }
     if (filters?.availableNowOnly) {
       params.set("availableNowOnly", "true");
+    }
+    if (filters?.micRequired) {
+      params.set("micRequired", "true");
+    }
+    if (filters?.playstyles?.length) {
+      filters.playstyles.forEach(p => params.append("playstyle", p));
     }
     const qs = params.toString();
     if (qs) {
@@ -147,7 +153,7 @@ export default function DiscoverScreen() {
       toUserId: string;
       swipeType: string;
     }) => {
-      return apiRequest<{ match?: boolean }>("POST", "/swipe", {
+      return apiRequest<{ match?: boolean }>("POST", "/api/swipe", {
         toUserId,
         swipeType,
       });
@@ -158,6 +164,14 @@ export default function DiscoverScreen() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/swipe-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    },
+    onError: (error) => {
+      if (error.message.includes("429")) {
+        Alert.alert(
+          "Daily Limit Reached",
+          "You've reached your daily swipe limit. Try again tomorrow!",
+        );
+      }
     },
   });
 
@@ -287,7 +301,7 @@ export default function DiscoverScreen() {
         <View style={styles.swipeCounter}>
           <Feather name="heart" size={16} color={theme.primary} />
           <ThemedText style={styles.swipeCounterText}>
-            {swipeStatus?.remaining ?? 50} swipes left today
+            {swipeStatus?.remaining ?? "..."} swipes left today
           </ThemedText>
         </View>
 

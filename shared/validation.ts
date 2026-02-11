@@ -57,11 +57,12 @@ export const setUserGamesSchema = z.object({
 // ============ Swipe Schemas ============
 export const swipeSchema = z.object({
   toUserId: z.string().uuid("Invalid user ID"),
-  liked: z.boolean(),
+  swipeType: z.enum(["like", "skip", "super"]),
 });
 
 // ============ Message Schemas ============
 export const sendMessageSchema = z.object({
+  matchId: z.string().min(1, "Match ID is required"),
   content: z
     .string()
     .min(1, "Message cannot be empty")
@@ -104,9 +105,13 @@ export const availableNowSchema = z.object({
 
 // ============ Filter Schemas ============
 export const feedFiltersSchema = z.object({
-  gameId: z.string().optional(),
-  region: z.string().optional(),
-  language: z.string().optional(),
+  gameId: z.union([z.string(), z.array(z.string())]).optional(),
+  region: z.union([z.string(), z.array(z.string())]).optional(),
+  language: z.union([z.string(), z.array(z.string())]).optional(),
+  micRequired: z.coerce.boolean().optional(),
+  playstyle: z.union([z.string(), z.array(z.string())]).optional(),
+  rankMin: z.string().optional(),
+  rankMax: z.string().optional(),
   availableNowOnly: z.coerce.boolean().optional(),
 });
 

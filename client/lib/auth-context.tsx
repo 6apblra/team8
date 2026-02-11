@@ -135,7 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await removeToken();
+    try {
+      await api.logout();
+    } catch {
+      await removeToken();
+    }
     wsManager.disconnect();
     setUser(null);
     setProfileState(null);
