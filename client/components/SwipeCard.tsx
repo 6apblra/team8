@@ -187,7 +187,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     borderRadius: BorderRadius["2xl"],
     overflow: "hidden",
-    position: "absolute",
     backgroundColor: "#111726",
     shadowColor: "#000000",
     shadowOpacity: 0.3,
@@ -196,6 +195,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   imageContainer: {
+    width: "100%",
     height: 320,
     position: "relative",
     backgroundColor: "#0F1525",

@@ -25,6 +25,8 @@ import { log } from "./logger";
 import {
   registerSchema,
   loginSchema,
+  changePasswordSchema,
+  deleteAccountSchema,
   createProfileSchema,
   updateProfileSchema,
   setUserGamesSchema,
@@ -220,6 +222,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to get user" });
     }
   });
+
+  // Change password
+  app.post(
+    "/api/auth/change-password",
+    requireAuth,
+    validateRequest(changePasswordSchema),
+    async (req, res) => {
+      try {
+        const userId = req.session.userId!;
+        const { currentPassword, newPassword } = req.body;
+
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        const validPassword = await bcrypt.compare(
+          currentPassword,
+          user.passwordHash,
+        );
+        if (!validPassword) {
+          return res.status(400).json({ error: "Current password is incorrect" });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        await storage.updateUserPassword(userId, newPasswordHash);
+
+        log.info({ userId }, "Password changed successfully");
+        return res.json({ success: true });
+      } catch (error) {
+        log.error({ err: error }, "Change password error");
+        return res.status(500).json({ error: "Failed to change password" });
+      }
+    },
+  );
+
+  // Delete account
+  app.delete(
+    "/api/auth/account",
+    requireAuth,
+    validateRequest(deleteAccountSchema),
+    async (req, res) => {
+      try {
+        const userId = req.session.userId!;
+        const { password } = req.body;
+
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.passwordHash);
+        if (!validPassword) {
+          return res.status(400).json({ error: "Password is incorrect" });
+        }
+
+        await storage.deleteUser(userId);
+
+        req.session.destroy(() => {});
+        log.info({ userId }, "Account deleted successfully");
+        return res.json({ success: true });
+      } catch (error) {
+        log.error({ err: error }, "Delete account error");
+        return res.status(500).json({ error: "Failed to delete account" });
+      }
+    },
+  );
 
   // Register push notification token
   app.post(

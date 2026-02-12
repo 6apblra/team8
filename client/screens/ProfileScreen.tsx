@@ -107,7 +107,7 @@ export default function ProfileScreen() {
     mutationFn: async (durationMinutes: number) => {
       return apiRequest<{ success: boolean; availableUntil: string }>(
         "POST",
-        "/available-now",
+        "/api/available-now",
         { durationMinutes },
       );
     },
@@ -124,7 +124,7 @@ export default function ProfileScreen() {
 
   const clearAvailableMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest<{ success: boolean }>("DELETE", "/available-now");
+      return apiRequest<{ success: boolean }>("DELETE", "/api/available-now");
     },
     onSuccess: () => {
       setIsAvailableNow(false);
@@ -384,6 +384,22 @@ export default function ProfileScreen() {
             >
               <Feather name="sliders" size={18} color={theme.text} />
               <ThemedText style={styles.settingLabel}>Filters</ThemedText>
+              <Feather
+                name="chevron-right"
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+            <View style={styles.settingDivider} />
+            <Pressable
+              onPress={() => navigation.navigate("Settings")}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="settings" size={18} color={theme.text} />
+              <ThemedText style={styles.settingLabel}>Settings</ThemedText>
               <Feather
                 name="chevron-right"
                 size={20}

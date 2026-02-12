@@ -102,6 +102,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
 
   getProfile(userId: string): Promise<Profile | undefined>;
   createProfile(profile: InsertProfile): Promise<Profile>;
@@ -197,6 +199,35 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    // Delete in order of dependencies
+    await db.delete(messages).where(eq(messages.senderId, userId));
+    await db.delete(matches).where(
+      or(eq(matches.user1Id, userId), eq(matches.user2Id, userId))
+    );
+    await db.delete(swipes).where(
+      or(eq(swipes.fromUserId, userId), eq(swipes.toUserId, userId))
+    );
+    await db.delete(reports).where(
+      or(eq(reports.reporterId, userId), eq(reports.reportedUserId, userId))
+    );
+    await db.delete(blocks).where(
+      or(eq(blocks.userId, userId), eq(blocks.blockedUserId, userId))
+    );
+    await db.delete(dailySwipeCounts).where(eq(dailySwipeCounts.userId, userId));
+    await db.delete(availabilityWindows).where(eq(availabilityWindows.userId, userId));
+    await db.delete(userGames).where(eq(userGames.userId, userId));
+    await db.delete(profiles).where(eq(profiles.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async getProfile(userId: string): Promise<Profile | undefined> {

@@ -8,8 +8,10 @@ import ChatScreen from "@/screens/ChatScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
 import EditGamesScreen from "@/screens/EditGamesScreen";
 import FiltersScreen from "@/screens/FiltersScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
+import { SettingsProvider } from "@/lib/settings-context";
 import { useTheme } from "@/hooks/useTheme";
 
 export type RootStackParamList = {
@@ -25,6 +27,7 @@ export type RootStackParamList = {
   EditProfile: undefined;
   EditGames: undefined;
   Filters: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,6 +105,14 @@ function RootNavigator() {
               presentation: "modal",
             }}
           />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{
+              headerTitle: "Settings",
+              presentation: "modal",
+            }}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -110,8 +121,10 @@ function RootNavigator() {
 
 export default function RootStackNavigator() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <SettingsProvider>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </SettingsProvider>
   );
 }
