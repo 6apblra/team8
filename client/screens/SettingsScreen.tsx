@@ -12,14 +12,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/lib/auth-context";
-import { useSettings, ThemeMode } from "@/lib/settings-context";
+import { useSettings, ThemeMode, LanguageMode } from "@/lib/settings-context";
 import { setHapticsEnabled } from "@/lib/haptics";
 import { apiRequest } from "@/lib/api-client";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface SettingRowProps {
@@ -132,6 +132,45 @@ function ThemeOption({ mode, label, icon, selected, onSelect }: ThemeOptionProps
   );
 }
 
+interface LanguageOptionProps {
+  mode: LanguageMode;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+function LanguageOption({ mode, label, icon, selected, onSelect }: LanguageOptionProps) {
+  const { theme } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onSelect}
+      style={[
+        styles.themeOption,
+        {
+          backgroundColor: selected ? theme.primary : theme.backgroundSecondary,
+          borderColor: selected ? theme.primary : theme.border,
+        },
+      ]}
+    >
+      <Feather
+        name={icon}
+        size={24}
+        color={selected ? "#FFFFFF" : theme.textSecondary}
+      />
+      <ThemedText
+        style={[
+          styles.themeOptionText,
+          { color: selected ? "#FFFFFF" : theme.text },
+        ]}
+      >
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 interface PasswordModalProps {
   visible: boolean;
   onClose: () => void;
@@ -139,6 +178,7 @@ interface PasswordModalProps {
 
 function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -148,15 +188,15 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
 
   const handleSubmit = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert(t("common.error"), t("auth.fillAllFields"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "New passwords don't match");
+      Alert.alert(t("common.error"), t("settings.passwordsMismatch"));
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      Alert.alert(t("common.error"), t("settings.passwordMinLength"));
       return;
     }
 
@@ -166,13 +206,13 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
         currentPassword,
         newPassword,
       });
-      Alert.alert("Success", "Password changed successfully");
+      Alert.alert(t("common.success"), t("settings.passwordChanged"));
       onClose();
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to change password");
+      Alert.alert(t("common.error"), error.message || t("settings.failedChangePassword"));
     } finally {
       setLoading(false);
     }
@@ -183,7 +223,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.modalHeader}>
-            <ThemedText type="h4">Change Password</ThemedText>
+            <ThemedText type="h4">{t("settings.changePassword")}</ThemedText>
             <Pressable onPress={onClose}>
               <Feather name="x" size={24} color={theme.text} />
             </Pressable>
@@ -191,7 +231,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
 
           <View style={styles.inputGroup}>
             <ThemedText style={[styles.inputLabel, { color: theme.textSecondary }]}>
-              Current Password
+              {t("settings.currentPassword")}
             </ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
               <TextInput
@@ -199,7 +239,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
                 secureTextEntry={!showCurrent}
-                placeholder="Enter current password"
+                placeholder={t("settings.enterCurrentPassword")}
                 placeholderTextColor={theme.textSecondary}
               />
               <Pressable onPress={() => setShowCurrent(!showCurrent)}>
@@ -210,7 +250,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
 
           <View style={styles.inputGroup}>
             <ThemedText style={[styles.inputLabel, { color: theme.textSecondary }]}>
-              New Password
+              {t("settings.newPassword")}
             </ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
               <TextInput
@@ -218,7 +258,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry={!showNew}
-                placeholder="Enter new password"
+                placeholder={t("settings.enterNewPassword")}
                 placeholderTextColor={theme.textSecondary}
               />
               <Pressable onPress={() => setShowNew(!showNew)}>
@@ -229,7 +269,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
 
           <View style={styles.inputGroup}>
             <ThemedText style={[styles.inputLabel, { color: theme.textSecondary }]}>
-              Confirm New Password
+              {t("settings.confirmNewPassword")}
             </ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
               <TextInput
@@ -237,7 +277,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showNew}
-                placeholder="Confirm new password"
+                placeholder={t("settings.confirmNewPasswordPlaceholder")}
                 placeholderTextColor={theme.textSecondary}
               />
             </View>
@@ -251,7 +291,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <ThemedText style={styles.submitButtonText}>Change Password</ThemedText>
+              <ThemedText style={styles.submitButtonText}>{t("settings.changePassword")}</ThemedText>
             )}
           </Pressable>
         </View>
@@ -262,6 +302,7 @@ function ChangePasswordModal({ visible, onClose }: PasswordModalProps) {
 
 function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -269,26 +310,26 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
 
   const handleDelete = async () => {
     if (!password) {
-      Alert.alert("Error", "Please enter your password");
+      Alert.alert(t("common.error"), t("settings.enterPassword"));
       return;
     }
 
     Alert.alert(
-      "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
+      t("settings.deleteAccountTitle"),
+      t("settings.cannotBeUndone"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             setLoading(true);
             try {
               await apiRequest("DELETE", "/api/auth/account", { password });
-              Alert.alert("Account Deleted", "Your account has been deleted.");
+              Alert.alert(t("settings.accountDeleted"), t("settings.accountDeletedMessage"));
               logout();
             } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to delete account");
+              Alert.alert(t("common.error"), error.message || t("settings.failedDeleteAccount"));
             } finally {
               setLoading(false);
             }
@@ -303,7 +344,7 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.modalHeader}>
-            <ThemedText type="h4">Delete Account</ThemedText>
+            <ThemedText type="h4">{t("settings.deleteAccountTitle")}</ThemedText>
             <Pressable onPress={onClose}>
               <Feather name="x" size={24} color={theme.text} />
             </Pressable>
@@ -312,13 +353,13 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
           <View style={[styles.warningBox, { backgroundColor: `${theme.danger}20` }]}>
             <Feather name="alert-triangle" size={24} color={theme.danger} />
             <ThemedText style={[styles.warningText, { color: theme.danger }]}>
-              This will permanently delete your account, profile, matches, and messages.
+              {t("settings.deleteAccountWarning")}
             </ThemedText>
           </View>
 
           <View style={styles.inputGroup}>
             <ThemedText style={[styles.inputLabel, { color: theme.textSecondary }]}>
-              Enter your password to confirm
+              {t("settings.enterPasswordToConfirm")}
             </ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
               <TextInput
@@ -326,7 +367,7 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                placeholder="Enter password"
+                placeholder={t("settings.enterPassword")}
                 placeholderTextColor={theme.textSecondary}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
@@ -343,7 +384,7 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <ThemedText style={styles.submitButtonText}>Delete Account</ThemedText>
+              <ThemedText style={styles.submitButtonText}>{t("settings.deleteAccount")}</ThemedText>
             )}
           </Pressable>
         </View>
@@ -354,8 +395,9 @@ function DeleteAccountModal({ visible, onClose }: PasswordModalProps) {
 
 export default function SettingsScreen() {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const { settings, setThemeMode, setHapticsEnabled: setHapticsEnabledSetting, setSoundEnabled } =
+  const { settings, setThemeMode, setHapticsEnabled: setHapticsEnabledSetting, setSoundEnabled, setLanguage } =
     useSettings();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -373,28 +415,28 @@ export default function SettingsScreen() {
       >
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-            Appearance
+            {t("settings.appearance")}
           </ThemedText>
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText style={styles.cardTitle}>Theme</ThemedText>
+            <ThemedText style={styles.cardTitle}>{t("settings.theme")}</ThemedText>
             <View style={styles.themeOptions}>
               <ThemeOption
                 mode="system"
-                label="Auto"
+                label={t("settings.themeAuto")}
                 icon="smartphone"
                 selected={settings.themeMode === "system"}
                 onSelect={() => setThemeMode("system")}
               />
               <ThemeOption
                 mode="light"
-                label="Light"
+                label={t("settings.themeLight")}
                 icon="sun"
                 selected={settings.themeMode === "light"}
                 onSelect={() => setThemeMode("light")}
               />
               <ThemeOption
                 mode="dark"
-                label="Dark"
+                label={t("settings.themeDark")}
                 icon="moon"
                 selected={settings.themeMode === "dark"}
                 onSelect={() => setThemeMode("dark")}
@@ -405,20 +447,51 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-            Feedback
+            {t("settings.language")}
+          </ThemedText>
+          <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.themeOptions}>
+              <LanguageOption
+                mode="system"
+                label={t("settings.languageAuto")}
+                icon="smartphone"
+                selected={settings.language === "system"}
+                onSelect={() => setLanguage("system")}
+              />
+              <LanguageOption
+                mode="en"
+                label={t("settings.languageEn")}
+                icon="globe"
+                selected={settings.language === "en"}
+                onSelect={() => setLanguage("en")}
+              />
+              <LanguageOption
+                mode="ru"
+                label={t("settings.languageRu")}
+                icon="globe"
+                selected={settings.language === "ru"}
+                onSelect={() => setLanguage("ru")}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+            {t("settings.feedback")}
           </ThemedText>
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
             <SettingRow
               icon="smartphone"
-              title="Haptic Feedback"
-              subtitle="Vibration on interactions"
+              title={t("settings.haptic")}
+              subtitle={t("settings.hapticSubtitle")}
               value={settings.hapticsEnabled}
               onValueChange={handleHapticsToggle}
             />
             <SettingRow
               icon="volume-2"
-              title="Sound Effects"
-              subtitle="Play sounds for actions"
+              title={t("settings.sound")}
+              subtitle={t("settings.soundSubtitle")}
               value={settings.soundEnabled}
               onValueChange={setSoundEnabled}
             />
@@ -427,25 +500,25 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-            Account
+            {t("settings.account")}
           </ThemedText>
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
             <SettingRow
               icon="mail"
-              title="Email"
+              title={t("settings.email")}
               rightElement={
                 <ThemedText style={{ color: theme.textSecondary }}>{user?.email}</ThemedText>
               }
             />
             <SettingRow
               icon="lock"
-              title="Change Password"
+              title={t("settings.changePassword")}
               onPress={() => setShowPasswordModal(true)}
             />
             <SettingRow
               icon="trash-2"
-              title="Delete Account"
-              subtitle="Permanently delete your account"
+              title={t("settings.deleteAccount")}
+              subtitle={t("settings.deleteAccountSubtitle")}
               onPress={() => setShowDeleteModal(true)}
               danger
             />
@@ -454,12 +527,12 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-            About
+            {t("settings.about")}
           </ThemedText>
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
             <SettingRow
               icon="info"
-              title="Version"
+              title={t("settings.version")}
               rightElement={
                 <ThemedText style={{ color: theme.textSecondary }}>1.0.0</ThemedText>
               }

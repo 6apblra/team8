@@ -10,6 +10,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
 
@@ -29,6 +30,7 @@ export default function FiltersScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -127,8 +129,8 @@ export default function FiltersScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Games
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("filters.games")}
           </ThemedText>
           <View style={styles.gamesGrid}>
             {GAMES.map((game) => {
@@ -178,14 +180,14 @@ export default function FiltersScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Region
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("filters.region")}
           </ThemedText>
           <View style={styles.chipGrid}>
             {REGIONS.map((region) => (
               <SelectableChip
                 key={region.id}
-                label={region.label}
+                label={t(`gameData.regions.${region.id}`)}
                 selected={selectedRegions.includes(region.id)}
                 onPress={() => toggleRegion(region.id)}
               />
@@ -194,14 +196,14 @@ export default function FiltersScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Languages
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("filters.languages")}
           </ThemedText>
           <View style={styles.chipGrid}>
             {LANGUAGES.slice(0, 6).map((lang) => (
               <SelectableChip
                 key={lang.id}
-                label={lang.label}
+                label={t(`gameData.languages.${lang.id}`)}
                 selected={selectedLanguages.includes(lang.id)}
                 onPress={() => toggleLanguage(lang.id)}
               />
@@ -210,14 +212,14 @@ export default function FiltersScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Playstyle
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("filters.playstyle")}
           </ThemedText>
           <View style={styles.chipGrid}>
             {PLAYSTYLES.map((ps) => (
               <SelectableChip
                 key={ps.id}
-                label={ps.label}
+                label={t(`gameData.playstyles.${ps.id}`)}
                 selected={selectedPlaystyles.includes(ps.id)}
                 onPress={() => togglePlaystyle(ps.id)}
                 icon={ps.icon as any}
@@ -227,11 +229,11 @@ export default function FiltersScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.toggleRow}>
+          <View style={[styles.toggleRow, { backgroundColor: theme.backgroundSecondary, borderWidth: 1, borderColor: theme.border }]}>
             <View style={styles.toggleLabel}>
               <Feather name="mic" size={20} color={theme.text} />
-              <ThemedText style={styles.toggleText}>
-                Microphone Required
+              <ThemedText style={[styles.toggleText, { color: theme.text }]}>
+                {t("filters.micRequired")}
               </ThemedText>
             </View>
             <Pressable
@@ -241,7 +243,7 @@ export default function FiltersScreen() {
                 {
                   backgroundColor: micRequired
                     ? theme.success
-                    : theme.backgroundSecondary,
+                    : theme.backgroundTertiary,
                 },
               ]}
             >
@@ -254,7 +256,7 @@ export default function FiltersScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.toggleRow}>
+          <View style={[styles.toggleRow, { backgroundColor: theme.backgroundSecondary, borderWidth: 1, borderColor: theme.border }]}>
             <View style={styles.toggleLabel}>
               <Feather
                 name="zap"
@@ -262,11 +264,11 @@ export default function FiltersScreen() {
                 color={availableNowOnly ? theme.secondary : theme.text}
               />
               <View style={styles.toggleLabelContent}>
-                <ThemedText style={styles.toggleText}>
-                  Available Now Only
+                <ThemedText style={[styles.toggleText, { color: theme.text }]}>
+                  {t("filters.availableNowOnly")}
                 </ThemedText>
-                <ThemedText style={styles.toggleSubtext}>
-                  Show only players ready to play
+                <ThemedText style={[styles.toggleSubtext, { color: theme.textSecondary }]}>
+                  {t("filters.availableNowSubtext")}
                 </ThemedText>
               </View>
             </View>
@@ -277,7 +279,7 @@ export default function FiltersScreen() {
                 {
                   backgroundColor: availableNowOnly
                     ? theme.secondary
-                    : theme.backgroundSecondary,
+                    : theme.backgroundTertiary,
                 },
               ]}
             >
@@ -293,18 +295,18 @@ export default function FiltersScreen() {
       </ScrollView>
 
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}
       >
         {hasFilters ? (
           <Pressable onPress={handleReset} style={styles.resetButton}>
             <Feather name="x" size={18} color={theme.textSecondary} />
-            <ThemedText style={styles.resetText}>Reset</ThemedText>
+            <ThemedText style={[styles.resetText, { color: theme.textSecondary }]}>{t("common.reset")}</ThemedText>
           </Pressable>
         ) : (
           <View />
         )}
         <Button onPress={handleApply} style={styles.applyButton}>
-          Apply Filters
+          {t("filters.applyFilters")}
         </Button>
       </View>
     </ThemedView>
@@ -323,7 +325,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sectionTitle: {
-    color: "#FFFFFF",
     marginLeft: 4,
   },
   gamesGrid: {
@@ -354,7 +355,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: Spacing.lg,
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.md,
   },
   toggleLabel: {
@@ -364,14 +364,12 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 16,
-    color: "#FFFFFF",
   },
   toggleLabelContent: {
     gap: 2,
   },
   toggleSubtext: {
     fontSize: 12,
-    color: "#A0A8B8",
   },
   toggle: {
     width: 50,
@@ -395,9 +393,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    backgroundColor: "#0A0E1A",
     borderTopWidth: 1,
-    borderTopColor: "#2A3040",
   },
   resetButton: {
     flexDirection: "row",
@@ -407,7 +403,6 @@ const styles = StyleSheet.create({
   },
   resetText: {
     fontSize: 16,
-    color: "#A0A8B8",
   },
   applyButton: {
     paddingHorizontal: Spacing["3xl"],

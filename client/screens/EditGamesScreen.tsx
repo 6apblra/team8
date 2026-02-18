@@ -17,9 +17,9 @@ import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, RANKS, ROLES, PLAYSTYLES, PLATFORMS } from "@/lib/game-data";
 
@@ -40,6 +40,7 @@ export default function EditGamesScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
@@ -74,26 +75,22 @@ export default function EditGamesScreen() {
 
   const updateMutation = useMutation({
     mutationFn: async (games: Omit<UserGame, "id" | "userId">[]) => {
-      // Server expects POST /api/user-games (userId taken from session/token)
       return apiRequest("POST", "/api/user-games", { games });
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/user-games"] });
-      // Invalidate specific user query to be sure
       if (user?.id) {
         queryClient.invalidateQueries({
           queryKey: ["/api/user-games", user.id],
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
-
-      // Automatically close screen on success for better UX
       navigation.goBack();
     },
     onError: (error) => {
       console.error("Update games error:", error);
-      Alert.alert("Error", "Failed to update games. Please try again.");
+      Alert.alert(t("common.error"), t("editGames.failedUpdate"));
     },
   });
 
@@ -118,7 +115,7 @@ export default function EditGamesScreen() {
 
   const handleSave = () => {
     if (selectedGames.length === 0) {
-      Alert.alert("Error", "Please select at least one game");
+      Alert.alert(t("common.error"), t("editGames.selectAtLeastOne"));
       return;
     }
 
@@ -145,11 +142,11 @@ export default function EditGamesScreen() {
       case "fortnite":
         return "box";
       case "lol":
-        return "award"; // League of Legends
+        return "award";
       case "wot":
-        return "menu"; // World of Tanks (using menu/list as approximation or shield)
+        return "menu";
       case "apex":
-        return "triangle"; // Apex Legends
+        return "triangle";
       default:
         return "award";
     }
@@ -174,9 +171,9 @@ export default function EditGamesScreen() {
           },
         ]}
       >
-        <ThemedText style={styles.sectionTitle}>Select Your Games</ThemedText>
-        <ThemedText style={styles.sectionSubtitle}>
-          Choose games you want to find teammates for
+        <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>{t("editGames.selectYourGames")}</ThemedText>
+        <ThemedText style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+          {t("editGames.selectGamesSubtitle")}
         </ThemedText>
 
         <View style={styles.gamesGrid}>
@@ -222,11 +219,11 @@ export default function EditGamesScreen() {
 
         {selectedGames.length > 0 && (
           <>
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-            <ThemedText style={styles.sectionTitle}>Game Details</ThemedText>
-            <ThemedText style={styles.sectionSubtitle}>
-              Set your rank and roles for each game
+            <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>{t("editGames.gameDetails")}</ThemedText>
+            <ThemedText style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              {t("editGames.gameDetailsSubtitle")}
             </ThemedText>
 
             {selectedGames.map((gameId) => {
@@ -237,7 +234,7 @@ export default function EditGamesScreen() {
               const roles = ROLES[gameId as keyof typeof ROLES] || [];
 
               return (
-                <View key={gameId} style={styles.gameDetailCard}>
+                <View key={gameId} style={[styles.gameDetailCard, { backgroundColor: theme.backgroundDefault }]}>
                   <Pressable
                     onPress={() => setExpandedGame(isExpanded ? null : gameId)}
                     style={[
@@ -250,12 +247,12 @@ export default function EditGamesScreen() {
                       size={24}
                       color={gameColor}
                     />
-                    <ThemedText style={styles.gameDetailName}>
+                    <ThemedText style={[styles.gameDetailName, { color: theme.text }]}>
                       {game?.name}
                     </ThemedText>
                     <View style={styles.gameDetailMeta}>
                       {gameRanks[gameId] && (
-                        <ThemedText style={styles.rankBadge}>
+                        <ThemedText style={[styles.rankBadge, { color: theme.textSecondary, backgroundColor: theme.backgroundTertiary }]}>
                           {gameRanks[gameId]}
                         </ThemedText>
                       )}
@@ -270,7 +267,7 @@ export default function EditGamesScreen() {
                   {isExpanded && (
                     <View style={styles.gameDetailContent}>
                       <View style={styles.formGroup}>
-                        <ThemedText style={styles.label}>Rank</ThemedText>
+                        <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.rank")}</ThemedText>
                         <ScrollView
                           horizontal
                           showsHorizontalScrollIndicator={false}
@@ -293,8 +290,8 @@ export default function EditGamesScreen() {
                       </View>
 
                       <View style={styles.formGroup}>
-                        <ThemedText style={styles.label}>
-                          Roles (select multiple)
+                        <ThemedText style={[styles.label, { color: theme.text }]}>
+                          {t("editGames.rolesMultiple")}
                         </ThemedText>
                         <View style={styles.chipGrid}>
                           {roles.map((role) => (
@@ -315,15 +312,15 @@ export default function EditGamesScreen() {
               );
             })}
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Playstyle</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.playstyle")}</ThemedText>
               <View style={styles.chipGrid}>
                 {PLAYSTYLES.map((ps) => (
                   <SelectableChip
                     key={ps.id}
-                    label={ps.label}
+                    label={t(`gameData.playstyles.${ps.id}`)}
                     selected={playstyle === ps.id}
                     onPress={() => setPlaystyle(ps.id)}
                     icon={ps.icon as any}
@@ -333,12 +330,12 @@ export default function EditGamesScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Platform</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.platform")}</ThemedText>
               <View style={styles.chipGrid}>
                 {PLATFORMS.map((p) => (
                   <SelectableChip
                     key={p.id}
-                    label={p.label}
+                    label={t(`gameData.platforms.${p.id}`)}
                     selected={platform === p.id}
                     onPress={() => setPlatform(p.id)}
                   />
@@ -350,7 +347,7 @@ export default function EditGamesScreen() {
       </ScrollView>
 
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}
       >
         <Pressable
           onPress={() => {
@@ -374,7 +371,7 @@ export default function EditGamesScreen() {
             <ThemedText
               style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 16 }}
             >
-              Save Changes
+              {t("common.save")}
             </ThemedText>
           )}
         </Pressable>
@@ -398,11 +395,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FFFFFF",
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: "#A0A8B8",
     marginTop: -Spacing.sm,
   },
   gamesGrid: {
@@ -438,11 +433,9 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#2A3040",
     marginVertical: Spacing.md,
   },
   gameDetailCard: {
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -457,7 +450,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   gameDetailMeta: {
     flexDirection: "row",
@@ -466,8 +458,6 @@ const styles = StyleSheet.create({
   },
   rankBadge: {
     fontSize: 12,
-    color: "#A0A8B8",
-    backgroundColor: "#2A3040",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -483,7 +473,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   chipGrid: {
     flexDirection: "row",
@@ -500,10 +489,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: Spacing.lg,
-    backgroundColor: "#0A0E1A",
     borderTopWidth: 1,
-    borderTopColor: "#2A3040",
-    zIndex: 9999, // Ensure it's on top
+    zIndex: 9999,
   },
   saveButton: {
     width: "100%",

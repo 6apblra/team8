@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
+import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, GameColors } from "@/constants/theme";
 
 interface GameBadgeProps {
@@ -41,6 +42,7 @@ export function GameBadge({
   onPress,
   selected,
 }: GameBadgeProps) {
+  const { theme } = useTheme();
   // Нормализуем имя игры: убираем пробелы, приводим к нижнему регистру
   const normalized = game.toLowerCase().replace(/\s/g, "");
   // Проверяем маппинг для полных имен, иначе используем как есть
@@ -83,12 +85,12 @@ export function GameBadge({
           {game}
         </ThemedText>
         {rank ? (
-          <ThemedText style={[styles.rank, { fontSize: fontSize - 2 }]}>
+          <ThemedText style={[styles.rank, { fontSize: fontSize - 2, color: theme.textSecondary }]}>
             {rank}
           </ThemedText>
         ) : null}
         {role ? (
-          <ThemedText style={[styles.role, { fontSize: fontSize - 2 }]}>
+          <ThemedText style={[styles.role, { fontSize: fontSize - 2, color: theme.textSecondary }]}>
             {role}
           </ThemedText>
         ) : null}
@@ -125,10 +127,6 @@ const styles = StyleSheet.create({
   gameName: {
     fontWeight: "600",
   },
-  rank: {
-    color: "#A0A8B8",
-  },
-  role: {
-    color: "#A0A8B8",
-  },
+  rank: {},
+  role: {},
 });

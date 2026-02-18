@@ -26,8 +26,8 @@ import { ThemedView } from "@/components/ThemedView";
 import { MessageBubble } from "@/components/MessageBubble";
 import { QuickMessageChip } from "@/components/QuickMessageChip";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { QUICK_MESSAGES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type ChatScreenRouteProp = RouteProp<RootStackParamList, "Chat">;
@@ -41,6 +41,14 @@ interface Message {
   createdAt: string;
 }
 
+const QUICK_MESSAGE_KEYS = [
+  "readyToPlay",
+  "whatRole",
+  "gotTime",
+  "addDiscord",
+  "teamUpLater",
+] as const;
+
 export default function ChatScreen() {
   const route = useRoute<ChatScreenRouteProp>();
   const navigation =
@@ -50,6 +58,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const flatListRef = useRef<FlatList>(null);
 
@@ -59,6 +68,10 @@ export default function ChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const quickMessages = QUICK_MESSAGE_KEYS.map((key) =>
+    t(`gameData.quickMessages.${key}`),
+  );
 
   const { data: fetchedMessages = [], isLoading } = useQuery<Message[]>({
     queryKey: ["/api/messages", matchId],
@@ -149,14 +162,14 @@ export default function ChatScreen() {
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          "Report Submitted",
-          "Thank you for helping keep the community safe.",
+          t("chat.reportSubmitted"),
+          t("chat.reportSubmittedMessage"),
         );
       } catch (error) {
-        Alert.alert("Error", "Failed to submit report. Please try again.");
+        Alert.alert(t("common.error"), t("chat.failedReport"));
       }
     },
-    [otherUserId],
+    [otherUserId, t],
   );
 
   const handleBlock = useCallback(async () => {
@@ -167,47 +180,47 @@ export default function ChatScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
-      Alert.alert("User Blocked", `${nickname} has been blocked.`, [
-        { text: "OK", onPress: () => navigation.goBack() },
+      Alert.alert(t("chat.userBlocked"), t("chat.userBlockedMessage", { name: nickname }), [
+        { text: t("common.ok"), onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
-      Alert.alert("Error", "Failed to block user. Please try again.");
+      Alert.alert(t("common.error"), t("chat.failedBlock"));
     }
-  }, [otherUserId, nickname, navigation, queryClient]);
+  }, [otherUserId, nickname, navigation, queryClient, t]);
 
   const showReportOptions = useCallback(() => {
-    Alert.alert("Report User", "Why are you reporting this user?", [
+    Alert.alert(t("chat.reportUser"), t("chat.reportWhy"), [
       {
-        text: "Inappropriate Content",
+        text: t("chat.reportInappropriate"),
         onPress: () => handleReport("inappropriate_content"),
       },
-      { text: "Harassment", onPress: () => handleReport("harassment") },
-      { text: "Spam", onPress: () => handleReport("spam") },
-      { text: "Fake Profile", onPress: () => handleReport("fake_profile") },
-      { text: "Cancel", style: "cancel" },
+      { text: t("chat.reportHarassment"), onPress: () => handleReport("harassment") },
+      { text: t("chat.reportSpam"), onPress: () => handleReport("spam") },
+      { text: t("chat.reportFake"), onPress: () => handleReport("fake_profile") },
+      { text: t("common.cancel"), style: "cancel" },
     ]);
-  }, [handleReport]);
+  }, [handleReport, t]);
 
   const showOptionsMenu = useCallback(() => {
-    Alert.alert(nickname, "Choose an action", [
-      { text: "Report User", onPress: showReportOptions },
+    Alert.alert(nickname, t("chat.chooseAction"), [
+      { text: t("chat.reportUser"), onPress: showReportOptions },
       {
-        text: "Block User",
+        text: t("chat.blockUser"),
         style: "destructive",
         onPress: () => {
           Alert.alert(
-            "Block User",
-            `Are you sure you want to block ${nickname}? You won't be able to message each other anymore.`,
+            t("chat.blockUser"),
+            t("chat.blockConfirm", { name: nickname }),
             [
-              { text: "Cancel", style: "cancel" },
-              { text: "Block", style: "destructive", onPress: handleBlock },
+              { text: t("common.cancel"), style: "cancel" },
+              { text: t("chat.block"), style: "destructive", onPress: handleBlock },
             ],
           );
         },
       },
-      { text: "Cancel", style: "cancel" },
+      { text: t("common.cancel"), style: "cancel" },
     ]);
-  }, [nickname, showReportOptions, handleBlock]);
+  }, [nickname, showReportOptions, handleBlock, t]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -252,12 +265,12 @@ export default function ChatScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
     } catch (error) {
-      Alert.alert("Error", "Failed to send message. Please try again.");
+      Alert.alert(t("common.error"), t("chat.failedSend"));
       setMessage(content);
     } finally {
       setIsSending(false);
     }
-  }, [message, isSending, matchId, user?.id, queryClient, sendTypingIndicator]);
+  }, [message, isSending, matchId, user?.id, queryClient, sendTypingIndicator, t]);
 
   const handleQuickMessage = useCallback(
     async (quickMessage: string) => {
@@ -280,12 +293,12 @@ export default function ChatScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       } catch (error) {
-        Alert.alert("Error", "Failed to send message. Please try again.");
+        Alert.alert(t("common.error"), t("chat.failedSend"));
       } finally {
         setIsSending(false);
       }
     },
-    [matchId, user?.id, queryClient],
+    [matchId, user?.id, queryClient, t],
   );
 
   if (isLoading) {
@@ -325,16 +338,16 @@ export default function ChatScreen() {
                 size={48}
                 color={theme.textSecondary}
               />
-              <ThemedText style={styles.emptyText}>
-                Start the conversation!
+              <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
+                {t("chat.startConversation")}
               </ThemedText>
             </View>
           }
           ListFooterComponent={
             isTyping ? (
               <View style={styles.typingIndicator}>
-                <ThemedText style={styles.typingText}>
-                  {nickname} is typing...
+                <ThemedText style={[styles.typingText, { color: theme.textSecondary }]}>
+                  {t("chat.isTyping", { name: nickname })}
                 </ThemedText>
               </View>
             ) : null
@@ -345,7 +358,7 @@ export default function ChatScreen() {
         <View
           style={[
             styles.inputContainer,
-            { paddingBottom: insets.bottom + Spacing.sm },
+            { paddingBottom: insets.bottom + Spacing.sm, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border },
           ]}
         >
           {showQuickMessages && allMessages.length === 0 ? (
@@ -355,7 +368,7 @@ export default function ChatScreen() {
               style={styles.quickMessagesScroll}
               contentContainerStyle={styles.quickMessagesContent}
             >
-              {QUICK_MESSAGES.map((qm, index) => (
+              {quickMessages.map((qm, index) => (
                 <QuickMessageChip
                   key={index}
                   message={qm}
@@ -367,8 +380,8 @@ export default function ChatScreen() {
 
           <View style={styles.inputRow}>
             <TextInput
-              style={[styles.input, { color: theme.text }]}
-              placeholder="Type a message..."
+              style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault }]}
+              placeholder={t("chat.messagePlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={message}
               onChangeText={handleTextChange}
@@ -430,7 +443,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyText: {
-    color: "#A0A8B8",
     fontSize: 16,
   },
   typingIndicator: {
@@ -438,16 +450,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   typingText: {
-    color: "#A0A8B8",
     fontSize: 14,
     fontStyle: "italic",
   },
   inputContainer: {
     borderTopWidth: 1,
-    borderTopColor: "#2A3040",
     paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: "#0A0E1A",
   },
   quickMessagesScroll: {
     marginBottom: Spacing.sm,
@@ -463,7 +472,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,

@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { MatchCard } from "@/components/MatchCard";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -43,6 +44,7 @@ export default function MatchesScreen() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const {
     data: matches = [],
@@ -92,11 +94,11 @@ export default function MatchesScreen() {
               size={80}
               color={theme.textSecondary}
             />
-            <ThemedText type="h3" style={styles.emptyTitle}>
-              No Matches Yet
+            <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
+              {t("matches.noMatchesTitle")}
             </ThemedText>
-            <ThemedText style={styles.emptySubtitle}>
-              Keep swiping to find your teammates!
+            <ThemedText style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+              {t("matches.noMatchesSubtitle")}
             </ThemedText>
           </View>
         }
@@ -146,11 +148,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyTitle: {
-    color: "#FFFFFF",
     marginTop: Spacing.lg,
   },
   emptySubtitle: {
-    color: "#A0A8B8",
     fontSize: 16,
     textAlign: "center",
   },

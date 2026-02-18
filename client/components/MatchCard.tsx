@@ -70,13 +70,13 @@ export function MatchCard({
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <ThemedText style={styles.nickname}>{nickname}</ThemedText>
+          <ThemedText style={[styles.nickname, { color: theme.text }]}>{nickname}</ThemedText>
           {timestamp ? (
-            <ThemedText style={styles.time}>{formatTime(timestamp)}</ThemedText>
+            <ThemedText style={[styles.time, { color: theme.textSecondary }]}>{formatTime(timestamp)}</ThemedText>
           ) : null}
         </View>
         {lastMessage ? (
-          <ThemedText style={styles.message} numberOfLines={1}>
+          <ThemedText style={[styles.message, { color: theme.textSecondary }]} numberOfLines={1}>
             {lastMessage}
           </ThemedText>
         ) : (
@@ -133,15 +133,12 @@ const styles = StyleSheet.create({
   nickname: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   time: {
     fontSize: 12,
-    color: "#A0A8B8",
   },
   message: {
     fontSize: 14,
-    color: "#A0A8B8",
   },
   badge: {
     width: 22,

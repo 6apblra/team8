@@ -15,12 +15,14 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { login, register } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -34,17 +36,17 @@ export default function LoginScreen() {
     setError("");
 
     if (!email.trim() || !password.trim()) {
-      setError("Please fill in all fields");
+      setError(t("auth.fillAllFields"));
       return;
     }
 
     if (!isLogin && password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t("auth.passwordMinLength"));
       return;
     }
 
@@ -55,10 +57,10 @@ export default function LoginScreen() {
         : await register(email.trim(), password);
 
       if (!result.success) {
-        setError(result.error || "An error occurred");
+        setError(result.error || t("common.error"));
       }
     } catch (err) {
-      setError("Connection error. Please try again.");
+      setError(t("auth.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -81,16 +83,16 @@ export default function LoginScreen() {
             style={styles.logo}
             contentFit="contain"
           />
-          <ThemedText type="h1" style={styles.title}>
-            TeamUp
+          <ThemedText type="h1" style={[styles.title, { color: theme.text }]}>
+            {t("auth.title")}
           </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Find your perfect gaming teammates
+          <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
+            {t("auth.subtitle")}
           </ThemedText>
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
             <Feather
               name="mail"
               size={20}
@@ -99,7 +101,7 @@ export default function LoginScreen() {
             />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="Email"
+              placeholder={t("auth.email")}
               placeholderTextColor={theme.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -109,7 +111,7 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
             <Feather
               name="lock"
               size={20}
@@ -118,7 +120,7 @@ export default function LoginScreen() {
             />
             <TextInput
               style={[styles.input, { color: theme.text, flex: 1 }]}
-              placeholder="Password"
+              placeholder={t("auth.password")}
               placeholderTextColor={theme.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -137,7 +139,7 @@ export default function LoginScreen() {
           </View>
 
           {!isLogin ? (
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
               <Feather
                 name="lock"
                 size={20}
@@ -146,7 +148,7 @@ export default function LoginScreen() {
               />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="Confirm Password"
+                placeholder={t("auth.confirmPassword")}
                 placeholderTextColor={theme.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -172,9 +174,9 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : isLogin ? (
-              "Sign In"
+              t("auth.signIn")
             ) : (
-              "Create Account"
+              t("auth.createAccount")
             )}
           </Button>
 
@@ -182,12 +184,12 @@ export default function LoginScreen() {
             onPress={() => setIsLogin(!isLogin)}
             style={styles.toggleButton}
           >
-            <ThemedText style={styles.toggleText}>
+            <ThemedText style={[styles.toggleText, { color: theme.textSecondary }]}>
               {isLogin
-                ? "Don't have an account? "
-                : "Already have an account? "}
+                ? t("auth.noAccount")
+                : t("auth.hasAccount")}
               <ThemedText style={[styles.toggleText, { color: theme.primary }]}>
-                {isLogin ? "Sign Up" : "Sign In"}
+                {isLogin ? t("auth.signUp") : t("auth.signIn")}
               </ThemedText>
             </ThemedText>
           </Pressable>
@@ -195,7 +197,7 @@ export default function LoginScreen() {
 
         <View style={styles.footer}>
           <ThemedText style={styles.footerText}>
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            {t("auth.footer")}
           </ThemedText>
         </View>
       </KeyboardAwareScrollViewCompat>
@@ -223,11 +225,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   title: {
-    color: "#FFFFFF",
     marginBottom: Spacing.xs,
   },
   subtitle: {
-    color: "#A0A8B8",
     fontSize: 16,
   },
   form: {
@@ -236,10 +236,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "#2A3040",
     paddingHorizontal: Spacing.lg,
     height: 56,
   },
@@ -272,7 +270,6 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    color: "#A0A8B8",
   },
   footer: {
     marginTop: Spacing["4xl"],

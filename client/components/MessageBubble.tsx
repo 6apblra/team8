@@ -41,13 +41,16 @@ export function MessageBubble({
         ]}
       >
         <ThemedText
-          style={[styles.content, isMine ? styles.textMine : styles.textOther]}
+          style={[
+            styles.content,
+            isMine ? styles.textMine : [styles.textOther, { color: theme.text }],
+          ]}
         >
           {content}
         </ThemedText>
       </View>
       {timestamp ? (
-        <ThemedText style={styles.time}>{formatTime(timestamp)}</ThemedText>
+        <ThemedText style={[styles.time, { color: theme.textSecondary }]}>{formatTime(timestamp)}</ThemedText>
       ) : null}
     </View>
   );
@@ -77,12 +80,9 @@ const styles = StyleSheet.create({
   textMine: {
     color: "#FFFFFF",
   },
-  textOther: {
-    color: "#FFFFFF",
-  },
+  textOther: {},
   time: {
     fontSize: 11,
-    color: "#A0A8B8",
     marginTop: 4,
     paddingHorizontal: 4,
   },

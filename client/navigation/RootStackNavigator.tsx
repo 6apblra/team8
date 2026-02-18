@@ -13,6 +13,7 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -36,6 +37,7 @@ function RootNavigator() {
   const screenOptions = useScreenOptions();
   const { isAuthenticated, hasProfile, isLoading } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -85,7 +87,7 @@ function RootNavigator() {
             name="EditProfile"
             component={EditProfileScreen}
             options={{
-              headerTitle: "Edit Profile",
+              headerTitle: t("navigation.editProfile"),
               presentation: "modal",
             }}
           />
@@ -93,7 +95,7 @@ function RootNavigator() {
             name="EditGames"
             component={EditGamesScreen}
             options={{
-              headerTitle: "Edit Games",
+              headerTitle: t("navigation.editGames"),
               presentation: "modal",
             }}
           />
@@ -101,7 +103,7 @@ function RootNavigator() {
             name="Filters"
             component={FiltersScreen}
             options={{
-              headerTitle: "Filters",
+              headerTitle: t("navigation.filters"),
               presentation: "modal",
             }}
           />
@@ -109,7 +111,7 @@ function RootNavigator() {
             name="Settings"
             component={SettingsScreen}
             options={{
-              headerTitle: "Settings",
+              headerTitle: t("navigation.settings"),
               presentation: "modal",
             }}
           />

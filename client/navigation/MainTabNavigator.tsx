@@ -7,6 +7,7 @@ import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import MatchesStackNavigator from "@/navigation/MatchesStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type MainTabParamList = {
   DiscoverTab: undefined;
@@ -18,6 +19,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={{ flex: 1 }}>
@@ -52,7 +54,7 @@ export default function MainTabNavigator() {
           name="DiscoverTab"
           component={HomeStackNavigator}
           options={{
-            title: "Discover",
+            title: t("navigation.discover"),
             tabBarIcon: ({ color, size }) => (
               <Feather name="compass" size={size} color={color} />
             ),
@@ -62,7 +64,7 @@ export default function MainTabNavigator() {
           name="MatchesTab"
           component={MatchesStackNavigator}
           options={{
-            title: "Matches",
+            title: t("navigation.matches"),
             tabBarIcon: ({ color, size }) => (
               <Feather name="users" size={size} color={color} />
             ),
@@ -72,7 +74,7 @@ export default function MainTabNavigator() {
           name="ProfileTab"
           component={ProfileStackNavigator}
           options={{
-            title: "Profile",
+            title: t("navigation.profile"),
             tabBarIcon: ({ color, size }) => (
               <Feather name="user" size={size} color={color} />
             ),

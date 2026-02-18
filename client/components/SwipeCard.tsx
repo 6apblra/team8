@@ -129,17 +129,17 @@ export function SwipeCard({
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.nameRow}>
-            <ThemedText type="h3" style={styles.nickname}>
+            <ThemedText type="h3" style={[styles.nickname, { color: theme.text }]}>
               {profile.nickname}
             </ThemedText>
             {profile.age ? (
-              <ThemedText style={styles.age}>{profile.age}</ThemedText>
+              <ThemedText style={[styles.age, { color: theme.textSecondary }]}>{profile.age}</ThemedText>
             ) : null}
           </View>
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Feather name="map-pin" size={14} color={theme.textSecondary} />
-              <ThemedText style={styles.infoText}>{profile.region}</ThemedText>
+              <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>{profile.region}</ThemedText>
             </View>
             {profile.micEnabled ? (
               <View style={styles.infoItem}>
@@ -152,7 +152,7 @@ export function SwipeCard({
             {profile.languages && profile.languages.length > 0 ? (
               <View style={styles.infoItem}>
                 <Feather name="globe" size={14} color={theme.textSecondary} />
-                <ThemedText style={styles.infoText}>
+                <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>
                   {profile.languages.slice(0, 2).join(", ")}
                 </ThemedText>
               </View>
@@ -173,7 +173,7 @@ export function SwipeCard({
         </View>
 
         {profile.bio ? (
-          <ThemedText style={styles.bio} numberOfLines={2}>
+          <ThemedText style={[styles.bio, { color: theme.textSecondary }]} numberOfLines={2}>
             {profile.bio}
           </ThemedText>
         ) : null}
@@ -293,12 +293,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   nickname: {
-    color: "#FFFFFF",
     letterSpacing: 0.4,
   },
   age: {
     fontSize: 18,
-    color: "#A0A8B8",
   },
   infoRow: {
     flexDirection: "row",
@@ -312,7 +310,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: "#A0A8B8",
   },
   gamesContainer: {
     flexDirection: "row",
@@ -321,6 +318,5 @@ const styles = StyleSheet.create({
   },
   bio: {
     fontSize: 14,
-    color: "#A0A8B8",
   },
 });

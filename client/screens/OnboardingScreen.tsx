@@ -18,6 +18,7 @@ import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import {
   GAMES,
@@ -31,12 +32,13 @@ import {
   TIME_SLOTS,
 } from "@/lib/game-data";
 
-const STEPS = ["Profile", "Games", "Schedule", "Finish"];
+const STEP_KEYS = ["profile", "games", "schedule", "finish"] as const;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { user, setProfile } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -56,6 +58,9 @@ export default function OnboardingScreen() {
 
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
+
+  const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+  const timeSlotKeys = ["morning", "afternoon", "evening", "night"] as const;
 
   const toggleGame = (gameId: string) => {
     setSelectedGames((prev) =>
@@ -103,7 +108,7 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
-    if (step < STEPS.length - 1) {
+    if (step < STEP_KEYS.length - 1) {
       setStep(step + 1);
     } else {
       handleComplete();
@@ -153,14 +158,14 @@ export default function OnboardingScreen() {
       } catch (gamesError) {
         console.error("Failed to save games:", gamesError);
         Alert.alert(
-          "Warning",
-          "Profile created but games could not be saved. You can add them later in settings.",
+          t("common.warning"),
+          t("onboarding.warningGames"),
         );
       }
 
       const windows = selectedDays.flatMap((day) =>
         selectedTimeSlots.map((slot) => {
-          const timeSlot = TIME_SLOTS.find((t) => t.id === slot);
+          const timeSlot = TIME_SLOTS.find((ts) => ts.id === slot);
           return {
             dayOfWeek: day,
             startTime: timeSlot?.start || "00:00",
@@ -174,15 +179,15 @@ export default function OnboardingScreen() {
       } catch (availError) {
         console.error("Failed to save availability:", availError);
         Alert.alert(
-          "Warning",
-          "Profile created but schedule could not be saved. You can set it later.",
+          t("common.warning"),
+          t("onboarding.warningSchedule"),
         );
       }
 
       setProfile(createdProfile);
     } catch (error: any) {
       const msg = error?.message || "Something went wrong";
-      Alert.alert("Error", `Failed to create profile: ${msg}`);
+      Alert.alert(t("common.error"), t("onboarding.errorCreateProfile", { message: msg }));
     } finally {
       setLoading(false);
     }
@@ -193,18 +198,18 @@ export default function OnboardingScreen() {
       case 0:
         return (
           <View style={styles.stepContent}>
-            <ThemedText type="h2" style={styles.stepTitle}>
-              Create Your Profile
+            <ThemedText type="h2" style={[styles.stepTitle, { color: theme.text }]}>
+              {t("onboarding.createProfile")}
             </ThemedText>
-            <ThemedText style={styles.stepSubtitle}>
-              Tell us about yourself so teammates can find you
+            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+              {t("onboarding.createProfileSubtitle")}
             </ThemedText>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Nickname *</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.nickname")}</ThemedText>
               <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="Your gaming name"
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+                placeholder={t("onboarding.nicknamePlaceholder")}
                 placeholderTextColor={theme.textSecondary}
                 value={nickname}
                 onChangeText={setNickname}
@@ -212,12 +217,12 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Region *</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.region")}</ThemedText>
               <View style={styles.chipGrid}>
                 {REGIONS.map((r) => (
                   <SelectableChip
                     key={r.id}
-                    label={r.label}
+                    label={t(`gameData.regions.${r.id}`)}
                     selected={region === r.id}
                     onPress={() => setRegion(r.id)}
                   />
@@ -226,12 +231,12 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Languages</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.languages")}</ThemedText>
               <View style={styles.chipGrid}>
                 {LANGUAGES.slice(0, 6).map((lang) => (
                   <SelectableChip
                     key={lang.id}
-                    label={lang.label}
+                    label={t(`gameData.languages.${lang.id}`)}
                     selected={selectedLanguages.includes(lang.id)}
                     onPress={() => toggleLanguage(lang.id)}
                   />
@@ -243,7 +248,7 @@ export default function OnboardingScreen() {
               <View style={styles.toggleRow}>
                 <View style={styles.toggleLabel}>
                   <Feather name="mic" size={20} color={theme.text} />
-                  <ThemedText style={styles.label}>Microphone</ThemedText>
+                  <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.microphone")}</ThemedText>
                 </View>
                 <Pressable
                   onPress={() => setMicEnabled(!micEnabled)}
@@ -267,12 +272,12 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>
-                Discord Tag (optional)
+              <ThemedText style={[styles.label, { color: theme.text }]}>
+                {t("onboarding.discordTag")}
               </ThemedText>
               <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="username#1234"
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+                placeholder={t("onboarding.discordPlaceholder")}
                 placeholderTextColor={theme.textSecondary}
                 value={discordTag}
                 onChangeText={setDiscordTag}
@@ -280,10 +285,10 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Bio (optional)</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.bioOptional")}</ThemedText>
               <TextInput
-                style={[styles.input, styles.textArea, { color: theme.text }]}
-                placeholder="Tell others about your gaming style..."
+                style={[styles.input, styles.textArea, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+                placeholder={t("onboarding.bioPlaceholder")}
                 placeholderTextColor={theme.textSecondary}
                 value={bio}
                 onChangeText={setBio}
@@ -297,11 +302,11 @@ export default function OnboardingScreen() {
       case 1:
         return (
           <View style={styles.stepContent}>
-            <ThemedText type="h2" style={styles.stepTitle}>
-              Select Your Games
+            <ThemedText type="h2" style={[styles.stepTitle, { color: theme.text }]}>
+              {t("onboarding.selectGames")}
             </ThemedText>
-            <ThemedText style={styles.stepSubtitle}>
-              Choose the games you want to find teammates for
+            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+              {t("onboarding.selectGamesSubtitle")}
             </ThemedText>
 
             <View style={styles.gamesGrid}>
@@ -358,12 +363,12 @@ export default function OnboardingScreen() {
             {selectedGames.length > 0 ? (
               <>
                 <View style={styles.formGroup}>
-                  <ThemedText style={styles.label}>Playstyle</ThemedText>
+                  <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.playstyle")}</ThemedText>
                   <View style={styles.chipGrid}>
                     {PLAYSTYLES.map((ps) => (
                       <SelectableChip
                         key={ps.id}
-                        label={ps.label}
+                        label={t(`gameData.playstyles.${ps.id}`)}
                         selected={playstyle === ps.id}
                         onPress={() => setPlaystyle(ps.id)}
                         icon={ps.icon as any}
@@ -373,12 +378,12 @@ export default function OnboardingScreen() {
                 </View>
 
                 <View style={styles.formGroup}>
-                  <ThemedText style={styles.label}>Platform</ThemedText>
+                  <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.platform")}</ThemedText>
                   <View style={styles.chipGrid}>
                     {PLATFORMS.map((p) => (
                       <SelectableChip
                         key={p.id}
-                        label={p.label}
+                        label={t(`gameData.platforms.${p.id}`)}
                         selected={platform === p.id}
                         onPress={() => setPlatform(p.id)}
                       />
@@ -393,17 +398,17 @@ export default function OnboardingScreen() {
       case 2:
         return (
           <View style={styles.stepContent}>
-            <ThemedText type="h2" style={styles.stepTitle}>
-              Set Your Schedule
+            <ThemedText type="h2" style={[styles.stepTitle, { color: theme.text }]}>
+              {t("onboarding.setSchedule")}
             </ThemedText>
-            <ThemedText style={styles.stepSubtitle}>
-              When are you usually available to play?
+            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+              {t("onboarding.setScheduleSubtitle")}
             </ThemedText>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Days Available</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.daysAvailable")}</ThemedText>
               <View style={styles.daysRow}>
-                {DAYS_OF_WEEK.map((day) => (
+                {DAYS_OF_WEEK.map((day, idx) => (
                   <Pressable
                     key={day.id}
                     onPress={() => toggleDay(day.id)}
@@ -426,7 +431,7 @@ export default function OnboardingScreen() {
                         },
                       ]}
                     >
-                      {day.label}
+                      {t(`gameData.days.${dayKeys[idx]}`)}
                     </ThemedText>
                   </Pressable>
                 ))}
@@ -434,9 +439,9 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.label}>Time Slots</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.timeSlots")}</ThemedText>
               <View style={styles.timeSlotsGrid}>
-                {TIME_SLOTS.map((slot) => (
+                {TIME_SLOTS.map((slot, idx) => (
                   <Pressable
                     key={slot.id}
                     onPress={() => toggleTimeSlot(slot.id)}
@@ -477,7 +482,7 @@ export default function OnboardingScreen() {
                         fontWeight: "600",
                       }}
                     >
-                      {slot.label}
+                      {t(`gameData.timeSlots.${timeSlotKeys[idx]}`)}
                     </ThemedText>
                     <ThemedText
                       style={{
@@ -502,12 +507,11 @@ export default function OnboardingScreen() {
             <View style={styles.finishIcon}>
               <Feather name="check-circle" size={80} color={theme.success} />
             </View>
-            <ThemedText type="h2" style={styles.stepTitle}>
-              You&apos;re All Set!
+            <ThemedText type="h2" style={[styles.stepTitle, { color: theme.text }]}>
+              {t("onboarding.allSet")}
             </ThemedText>
-            <ThemedText style={[styles.stepSubtitle, { textAlign: "center" }]}>
-              Start swiping to find your perfect gaming teammates. Good luck and
-              have fun!
+            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary, textAlign: "center" }]}>
+              {t("onboarding.allSetSubtitle")}
             </ThemedText>
           </View>
         );
@@ -521,7 +525,7 @@ export default function OnboardingScreen() {
     <ThemedView style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
         <View style={styles.progressContainer}>
-          {STEPS.map((_, index) => (
+          {STEP_KEYS.map((_, index) => (
             <View
               key={index}
               style={[
@@ -534,8 +538,8 @@ export default function OnboardingScreen() {
             />
           ))}
         </View>
-        <ThemedText style={styles.stepIndicator}>
-          Step {step + 1} of {STEPS.length}
+        <ThemedText style={[styles.stepIndicator, { color: theme.textSecondary }]}>
+          {t("onboarding.stepOf", { current: String(step + 1), total: String(STEP_KEYS.length) })}
         </ThemedText>
       </View>
 
@@ -547,12 +551,12 @@ export default function OnboardingScreen() {
       </KeyboardAwareScrollViewCompat>
 
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, borderTopColor: theme.border }]}
       >
         {step > 0 ? (
           <Pressable onPress={handleBack} style={styles.backButton}>
             <Feather name="arrow-left" size={20} color={theme.text} />
-            <ThemedText style={styles.backText}>Back</ThemedText>
+            <ThemedText style={[styles.backText, { color: theme.text }]}>{t("common.back")}</ThemedText>
           </Pressable>
         ) : (
           <View />
@@ -564,10 +568,10 @@ export default function OnboardingScreen() {
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
-          ) : step === STEPS.length - 1 ? (
-            "Start Matching"
+          ) : step === STEP_KEYS.length - 1 ? (
+            t("onboarding.startMatching")
           ) : (
-            "Continue"
+            t("onboarding.continue")
           )}
         </Button>
       </View>
@@ -596,7 +600,6 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: 14,
-    color: "#A0A8B8",
   },
   scrollView: {
     flex: 1,
@@ -609,11 +612,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xl,
   },
   stepTitle: {
-    color: "#FFFFFF",
     textAlign: "center",
   },
   stepSubtitle: {
-    color: "#A0A8B8",
     fontSize: 16,
     textAlign: "center",
     marginBottom: Spacing.md,
@@ -624,14 +625,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
     marginLeft: 4,
   },
   input: {
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "#2A3040",
     paddingHorizontal: Spacing.lg,
     height: 52,
     fontSize: 16,
@@ -743,7 +741,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "#2A3040",
   },
   backButton: {
     flexDirection: "row",
@@ -753,7 +750,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: "#FFFFFF",
   },
   nextButton: {
     paddingHorizontal: Spacing["3xl"],

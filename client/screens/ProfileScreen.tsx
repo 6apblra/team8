@@ -23,8 +23,9 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
+import { REGIONS, LANGUAGES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 interface UserGame {
@@ -63,6 +64,7 @@ export default function ProfileScreen() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile, logout } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isAvailableNow, setIsAvailableNow] = useState(false);
   const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
@@ -146,10 +148,10 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("profile.signOut"), t("profile.signOutConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Sign Out",
+        text: t("profile.signOut"),
         style: "destructive",
         onPress: logout,
       },
@@ -167,13 +169,13 @@ export default function ProfileScreen() {
     displayProfile?.avatarUrl ||
     `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.id}`;
 
-  const regionLabel =
-    REGIONS.find((r) => r.id === displayProfile?.region)?.label ||
-    displayProfile?.region;
+  const regionLabel = displayProfile?.region
+    ? t(`gameData.regions.${displayProfile.region}`)
+    : displayProfile?.region;
   const languageLabels =
     displayProfile?.languages
-      ?.map((l: string) => LANGUAGES.find((lang) => lang.id === l)?.label || l)
-      .join(", ") || "Not set";
+      ?.map((l: string) => t(`gameData.languages.${l}`))
+      .join(", ") || t("profile.notSet");
 
   return (
     <ThemedView style={styles.container}>
@@ -191,14 +193,14 @@ export default function ProfileScreen() {
           <Pressable onPress={handleEditProfile}>
             <Image
               source={{ uri: avatarUrl }}
-              style={styles.avatar}
+              style={[styles.avatar, { backgroundColor: theme.backgroundDefault }]}
               contentFit="cover"
             />
-            <View style={styles.editBadge}>
+            <View style={[styles.editBadge, { borderColor: theme.backgroundRoot }]}>
               <Feather name="edit-2" size={14} color="#FFFFFF" />
             </View>
           </Pressable>
-          <ThemedText type="h2" style={styles.nickname}>
+          <ThemedText type="h2" style={[styles.nickname, { color: theme.text }]}>
             {displayProfile?.nickname || "Player"}
           </ThemedText>
 
@@ -215,13 +217,13 @@ export default function ProfileScreen() {
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Feather name="map-pin" size={16} color={theme.textSecondary} />
-              <ThemedText style={styles.infoText}>{regionLabel}</ThemedText>
+              <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>{regionLabel}</ThemedText>
             </View>
             {displayProfile?.micEnabled ? (
               <View style={styles.infoItem}>
                 <Feather name="mic" size={16} color={theme.success} />
                 <ThemedText style={[styles.infoText, { color: theme.success }]}>
-                  Mic On
+                  {t("profile.micOn")}
                 </ThemedText>
               </View>
             ) : null}
@@ -230,14 +232,14 @@ export default function ProfileScreen() {
 
         {displayProfile?.bio ? (
           <Card elevation={1} style={styles.bioCard}>
-            <ThemedText style={styles.bioText}>{displayProfile.bio}</ThemedText>
+            <ThemedText style={[styles.bioText, { color: theme.text }]}>{displayProfile.bio}</ThemedText>
           </Card>
         ) : null}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Games
+            <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+              {t("profile.games")}
             </ThemedText>
             <Pressable
               onPress={() => navigation.navigate("EditGames")}
@@ -250,7 +252,7 @@ export default function ProfileScreen() {
               <ThemedText
                 style={[styles.editButtonText, { color: theme.primary }]}
               >
-                Edit
+                {t("common.edit")}
               </ThemedText>
             </Pressable>
           </View>
@@ -268,13 +270,13 @@ export default function ProfileScreen() {
             ) : (
               <Pressable
                 onPress={() => navigation.navigate("EditGames")}
-                style={styles.addGamesButton}
+                style={[styles.addGamesButton, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
               >
                 <Feather name="plus-circle" size={24} color={theme.primary} />
                 <ThemedText
                   style={[styles.addGamesText, { color: theme.primary }]}
                 >
-                  Add games to find teammates
+                  {t("profile.addGames")}
                 </ThemedText>
               </Pressable>
             )}
@@ -282,14 +284,14 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Details
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("profile.details")}
           </ThemedText>
           <Card elevation={1}>
             <View style={styles.detailRow}>
               <Feather name="globe" size={18} color={theme.textSecondary} />
-              <ThemedText style={styles.detailLabel}>Languages</ThemedText>
-              <ThemedText style={styles.detailValue}>
+              <ThemedText style={[styles.detailLabel, { color: theme.text }]}>{t("profile.languagesLabel")}</ThemedText>
+              <ThemedText style={[styles.detailValue, { color: theme.textSecondary }]}>
                 {languageLabels}
               </ThemedText>
             </View>
@@ -300,8 +302,8 @@ export default function ProfileScreen() {
                   size={18}
                   color={theme.textSecondary}
                 />
-                <ThemedText style={styles.detailLabel}>Discord</ThemedText>
-                <ThemedText style={styles.detailValue}>
+                <ThemedText style={[styles.detailLabel, { color: theme.text }]}>{t("profile.discord")}</ThemedText>
+                <ThemedText style={[styles.detailValue, { color: theme.textSecondary }]}>
                   {displayProfile.discordTag}
                 </ThemedText>
               </View>
@@ -310,8 +312,8 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Activity Status
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("profile.activityStatus")}
           </ThemedText>
           <Card elevation={1}>
             <View style={styles.availableRow}>
@@ -324,14 +326,14 @@ export default function ProfileScreen() {
                       isAvailableNow ? theme.secondary : theme.textSecondary
                     }
                   />
-                  <ThemedText style={[styles.settingLabel, { flex: 0 }]}>
-                    Ready to Play
+                  <ThemedText style={[styles.settingLabel, { flex: 0, color: theme.text }]}>
+                    {t("profile.readyToPlay")}
                   </ThemedText>
                 </View>
-                <ThemedText style={styles.availableDescription}>
+                <ThemedText style={[styles.availableDescription, { color: theme.textSecondary }]}>
                   {isAvailableNow
-                    ? "Others can see you're looking for teammates now"
-                    : "Let others know you're available to play"}
+                    ? t("profile.readyToPlayActive")
+                    : t("profile.readyToPlayInactive")}
                 </ThemedText>
               </View>
               <Switch
@@ -342,12 +344,12 @@ export default function ProfileScreen() {
               />
             </View>
             {isAvailableNow && remainingMinutes !== null ? (
-              <View style={styles.availableTimer}>
+              <View style={[styles.availableTimer, { borderTopColor: theme.border }]}>
                 <Feather name="clock" size={14} color={theme.textSecondary} />
-                <ThemedText style={styles.timerText}>
+                <ThemedText style={[styles.timerText, { color: theme.textSecondary }]}>
                   {remainingMinutes >= 60
-                    ? `Active for ${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m`
-                    : `Active for ${remainingMinutes}m`}
+                    ? t("profile.activeForHM", { hours: String(Math.floor(remainingMinutes / 60)), minutes: String(remainingMinutes % 60) })
+                    : t("profile.activeForM", { minutes: String(remainingMinutes) })}
                 </ThemedText>
               </View>
             ) : null}
@@ -355,8 +357,8 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Settings
+          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("profile.settingsSection")}
           </ThemedText>
           <Card elevation={1}>
             <Pressable
@@ -367,14 +369,14 @@ export default function ProfileScreen() {
               ]}
             >
               <Feather name="edit" size={18} color={theme.text} />
-              <ThemedText style={styles.settingLabel}>Edit Profile</ThemedText>
+              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.editProfile")}</ThemedText>
               <Feather
                 name="chevron-right"
                 size={20}
                 color={theme.textSecondary}
               />
             </Pressable>
-            <View style={styles.settingDivider} />
+            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
             <Pressable
               onPress={() => navigation.navigate("Filters")}
               style={({ pressed }: { pressed: boolean }) => [
@@ -383,14 +385,14 @@ export default function ProfileScreen() {
               ]}
             >
               <Feather name="sliders" size={18} color={theme.text} />
-              <ThemedText style={styles.settingLabel}>Filters</ThemedText>
+              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.filters")}</ThemedText>
               <Feather
                 name="chevron-right"
                 size={20}
                 color={theme.textSecondary}
               />
             </Pressable>
-            <View style={styles.settingDivider} />
+            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
             <Pressable
               onPress={() => navigation.navigate("Settings")}
               style={({ pressed }: { pressed: boolean }) => [
@@ -399,14 +401,14 @@ export default function ProfileScreen() {
               ]}
             >
               <Feather name="settings" size={18} color={theme.text} />
-              <ThemedText style={styles.settingLabel}>Settings</ThemedText>
+              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.settings")}</ThemedText>
               <Feather
                 name="chevron-right"
                 size={20}
                 color={theme.textSecondary}
               />
             </Pressable>
-            <View style={styles.settingDivider} />
+            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
             <Pressable
               onPress={handleLogout}
               style={({ pressed }: { pressed: boolean }) => [
@@ -418,7 +420,7 @@ export default function ProfileScreen() {
               <ThemedText
                 style={[styles.settingLabel, { color: theme.danger }]}
               >
-                Sign Out
+                {t("profile.signOut")}
               </ThemedText>
               <Feather
                 name="chevron-right"
@@ -449,7 +451,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#1A1F2E",
   },
   editBadge: {
     position: "absolute",
@@ -462,10 +463,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#0A0E1A",
   },
   nickname: {
-    color: "#FFFFFF",
     marginTop: Spacing.sm,
   },
   infoRow: {
@@ -478,14 +477,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   infoText: {
-    color: "#A0A8B8",
     fontSize: 14,
   },
   bioCard: {
     padding: Spacing.lg,
   },
   bioText: {
-    color: "#FFFFFF",
     fontSize: 14,
     lineHeight: 22,
   },
@@ -493,7 +490,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sectionTitle: {
-    color: "#FFFFFF",
     marginLeft: 4,
   },
   gamesGrid: {
@@ -502,7 +498,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyText: {
-    color: "#A0A8B8",
     fontSize: 14,
   },
   detailRow: {
@@ -513,11 +508,9 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     flex: 1,
-    color: "#FFFFFF",
     fontSize: 14,
   },
   detailValue: {
-    color: "#A0A8B8",
     fontSize: 14,
   },
   settingRow: {
@@ -528,12 +521,10 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     flex: 1,
-    color: "#FFFFFF",
     fontSize: 16,
   },
   settingDivider: {
     height: 1,
-    backgroundColor: "#2A3040",
     marginLeft: 34,
   },
   availableRow: {
@@ -552,7 +543,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   availableDescription: {
-    color: "#A0A8B8",
     fontSize: 13,
     marginLeft: 28,
   },
@@ -562,11 +552,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#2A3040",
     marginTop: Spacing.sm,
   },
   timerText: {
-    color: "#A0A8B8",
     fontSize: 13,
   },
   sectionHeader: {
@@ -591,10 +579,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
-    backgroundColor: "#1A1F2E",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#2A3040",
     borderStyle: "dashed",
   },
   addGamesText: {

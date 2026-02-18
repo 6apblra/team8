@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { REGIONS, LANGUAGES } from "@/lib/game-data";
 
@@ -31,6 +32,7 @@ export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, profile, setProfile } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [nickname, setNickname] = useState(profile?.nickname || "");
@@ -81,7 +83,7 @@ export default function EditProfileScreen() {
       if (data.profile) setProfile(data.profile);
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
     } catch {
-      Alert.alert("Error", "Failed to upload avatar");
+      Alert.alert(t("common.error"), t("editProfile.failedUpload"));
     } finally {
       setUploadingAvatar(false);
     }
@@ -93,19 +95,17 @@ export default function EditProfileScreen() {
       const endpoint = profile ? `/api/profile/${user?.id}` : "/api/profile";
 
       const response = await apiRequest<Profile>(method, endpoint, data);
-      // apiRequest returns parsed JSON if content-type is json, no need to call .json() again
       return response;
     },
     onSuccess: (updatedProfile) => {
       setProfile(updatedProfile);
-      // Invalidate both potential queries
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       navigation.goBack();
     },
     onError: (error) => {
       console.error("Profile update error:", error);
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      Alert.alert(t("common.error"), t("editProfile.failedUpdate"));
     },
   });
 
@@ -119,11 +119,11 @@ export default function EditProfileScreen() {
 
   const handleSave = () => {
     if (!nickname.trim()) {
-      Alert.alert("Error", "Nickname is required");
+      Alert.alert(t("common.error"), t("editProfile.nicknameRequired"));
       return;
     }
     if (!region) {
-      Alert.alert("Error", "Please select a region");
+      Alert.alert(t("common.error"), t("editProfile.selectRegion"));
       return;
     }
 
@@ -171,7 +171,7 @@ export default function EditProfileScreen() {
               <View
                 style={[
                   styles.avatarEditBadge,
-                  { backgroundColor: theme.primary },
+                  { backgroundColor: theme.primary, borderColor: theme.backgroundRoot },
                 ]}
               >
                 {uploadingAvatar ? (
@@ -182,14 +182,14 @@ export default function EditProfileScreen() {
               </View>
             </View>
           </Pressable>
-          <ThemedText style={styles.avatarHint}>Tap to change photo</ThemedText>
+          <ThemedText style={[styles.avatarHint, { color: theme.textSecondary }]}>{t("editProfile.tapToChangePhoto")}</ThemedText>
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={styles.label}>Nickname *</ThemedText>
+          <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.nickname")}</ThemedText>
           <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Your gaming name"
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+            placeholder={t("onboarding.nicknamePlaceholder")}
             placeholderTextColor={theme.textSecondary}
             value={nickname}
             onChangeText={setNickname}
@@ -197,12 +197,12 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={styles.label}>Region *</ThemedText>
+          <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.region")}</ThemedText>
           <View style={styles.chipGrid}>
             {REGIONS.map((r) => (
               <SelectableChip
                 key={r.id}
-                label={r.label}
+                label={t(`gameData.regions.${r.id}`)}
                 selected={region === r.id}
                 onPress={() => setRegion(r.id)}
               />
@@ -211,12 +211,12 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={styles.label}>Languages</ThemedText>
+          <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.languages")}</ThemedText>
           <View style={styles.chipGrid}>
             {LANGUAGES.slice(0, 6).map((lang) => (
               <SelectableChip
                 key={lang.id}
-                label={lang.label}
+                label={t(`gameData.languages.${lang.id}`)}
                 selected={selectedLanguages.includes(lang.id)}
                 onPress={() => toggleLanguage(lang.id)}
               />
@@ -228,7 +228,7 @@ export default function EditProfileScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
               <Feather name="mic" size={20} color={theme.text} />
-              <ThemedText style={styles.label}>Microphone</ThemedText>
+              <ThemedText style={[styles.label, { color: theme.text }]}>{t("onboarding.microphone")}</ThemedText>
             </View>
             <Pressable
               onPress={() => setMicEnabled(!micEnabled)}
@@ -252,10 +252,10 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={styles.label}>Discord Tag</ThemedText>
+          <ThemedText style={[styles.label, { color: theme.text }]}>Discord Tag</ThemedText>
           <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="username#1234"
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+            placeholder={t("onboarding.discordPlaceholder")}
             placeholderTextColor={theme.textSecondary}
             value={discordTag}
             onChangeText={setDiscordTag}
@@ -263,10 +263,10 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={styles.label}>Bio</ThemedText>
+          <ThemedText style={[styles.label, { color: theme.text }]}>Bio</ThemedText>
           <TextInput
-            style={[styles.input, styles.textArea, { color: theme.text }]}
-            placeholder="Tell others about your gaming style..."
+            style={[styles.input, styles.textArea, { color: theme.text, backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+            placeholder={t("onboarding.bioPlaceholder")}
             placeholderTextColor={theme.textSecondary}
             value={bio}
             onChangeText={setBio}
@@ -283,7 +283,7 @@ export default function EditProfileScreen() {
           {updateMutation.isPending ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            "Save Changes"
+            t("common.save")
           )}
         </Button>
       </KeyboardAwareScrollViewCompat>
@@ -305,14 +305,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
     marginLeft: 4,
   },
   input: {
-    backgroundColor: "#1A1F2E",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "#2A3040",
     paddingHorizontal: Spacing.lg,
     height: 52,
     fontSize: 16,
@@ -375,11 +372,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#0A0E1A",
   },
   avatarHint: {
     fontSize: 12,
-    color: "#A0A8B8",
   },
   saveButton: {
     marginTop: Spacing.lg,
