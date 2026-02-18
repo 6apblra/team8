@@ -28,6 +28,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ActionButton } from "@/components/ActionButton";
 import { SwipeCard } from "@/components/SwipeCard";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing } from "@/constants/theme";
 import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 
@@ -67,6 +68,7 @@ export default function DiscoverScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -174,8 +176,8 @@ export default function DiscoverScreen() {
     onError: (error) => {
       if (error.message.includes("429")) {
         Alert.alert(
-          "Daily Limit Reached",
-          "You've reached your daily swipe limit. Try again tomorrow!",
+          t("discover.dailyLimitTitle"),
+          t("discover.dailyLimitMessage"),
         );
       }
     },
@@ -219,14 +221,40 @@ export default function DiscoverScreen() {
     })
     .onEnd((event) => {
       if (event.translationY < -100 && Math.abs(event.translationX) < 50) {
-        translateY.value = withSpring(-500, { damping: 20 });
-        runOnJS(handleSwipe)("up");
+        translateX.value = withSpring(0, { damping: 20 });
+        translateY.value = withSpring(-500, { damping: 20 }, (finished) => {
+          if (finished) {
+            translateX.value = 0;
+            translateY.value = 0;
+            runOnJS(handleSwipe)("up");
+          }
+        });
       } else if (event.translationX > SWIPE_THRESHOLD) {
-        translateX.value = withSpring(SCREEN_WIDTH * 1.5, { damping: 20 });
-        runOnJS(handleSwipe)("right");
+        translateY.value = withSpring(0, { damping: 20 });
+        translateX.value = withSpring(
+          SCREEN_WIDTH * 1.5,
+          { damping: 20 },
+          (finished) => {
+            if (finished) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(handleSwipe)("right");
+            }
+          },
+        );
       } else if (event.translationX < -SWIPE_THRESHOLD) {
-        translateX.value = withSpring(-SCREEN_WIDTH * 1.5, { damping: 20 });
-        runOnJS(handleSwipe)("left");
+        translateY.value = withSpring(0, { damping: 20 });
+        translateX.value = withSpring(
+          -SCREEN_WIDTH * 1.5,
+          { damping: 20 },
+          (finished) => {
+            if (finished) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(handleSwipe)("left");
+            }
+          },
+        );
       } else {
         runOnJS(resetPosition)();
       }
@@ -253,21 +281,29 @@ export default function DiscoverScreen() {
           : 0;
     const targetY = direction === "up" ? -500 : 0;
 
-    translateX.value = withSpring(targetX, { damping: 20 });
-    translateY.value = withSpring(targetY, { damping: 20 });
+    const onComplete = (finished?: boolean) => {
+      "worklet";
+      if (finished) {
+        translateX.value = 0;
+        translateY.value = 0;
+        runOnJS(handleSwipe)(direction);
+      }
+    };
 
-    setTimeout(() => {
-      handleSwipe(direction);
-      translateX.value = 0;
-      translateY.value = 0;
-    }, 200);
+    if (direction === "up") {
+      translateX.value = withSpring(0, { damping: 20 });
+      translateY.value = withSpring(targetY, { damping: 20 }, onComplete);
+    } else {
+      translateY.value = withSpring(0, { damping: 20 });
+      translateX.value = withSpring(targetX, { damping: 20 }, onComplete);
+    }
   };
 
   if (isLoading) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <ThemedText style={styles.loadingText}>Finding teammates...</ThemedText>
+        <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>{t("discover.findingTeammates")}</ThemedText>
       </ThemedView>
     );
   }
@@ -282,11 +318,11 @@ export default function DiscoverScreen() {
         ]}
       >
         <Feather name="users" size={80} color={theme.textSecondary} />
-        <ThemedText type="h3" style={styles.emptyTitle}>
-          No More Profiles
+        <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
+          {t("discover.noMoreProfiles")}
         </ThemedText>
-        <ThemedText style={styles.emptySubtitle}>
-          Check back later for new teammates
+        <ThemedText style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+          {t("discover.checkBackLater")}
         </ThemedText>
         <ActionButton
           icon="refresh-cw"
@@ -306,8 +342,8 @@ export default function DiscoverScreen() {
       <View style={[styles.content, { paddingTop: headerHeight + Spacing.md }]}>
         <View style={styles.swipeCounter}>
           <Feather name="heart" size={16} color={theme.primary} />
-          <ThemedText style={styles.swipeCounterText}>
-            {swipeStatus?.remaining ?? "..."} swipes left today
+          <ThemedText style={[styles.swipeCounterText, { color: theme.textSecondary }]}>
+            {t("discover.swipesLeft", { count: String(swipeStatus?.remaining ?? "...") })}
           </ThemedText>
         </View>
 
@@ -400,15 +436,12 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   loadingText: {
-    color: "#A0A8B8",
     marginTop: Spacing.md,
   },
   emptyTitle: {
-    color: "#FFFFFF",
     marginTop: Spacing.lg,
   },
   emptySubtitle: {
-    color: "#A0A8B8",
     fontSize: 16,
     marginBottom: Spacing.lg,
   },
@@ -423,7 +456,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   swipeCounterText: {
-    color: "#A0A8B8",
     fontSize: 14,
   },
   cardContainer: {
