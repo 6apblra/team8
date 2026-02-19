@@ -37,6 +37,11 @@ function setupCors(app: express.Application) {
     origins.add("http://127.0.0.1:8081");
     origins.add("http://127.0.0.1:19006");
 
+    // Production server origin
+    if (process.env.EXPO_PUBLIC_API_URL) {
+      origins.add(process.env.EXPO_PUBLIC_API_URL);
+    }
+
     if (process.env.EXPO_PUBLIC_DOMAIN) {
       origins.add(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
     }
@@ -81,7 +86,7 @@ function setupSession(app: express.Application) {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production" && process.env.EXPO_PUBLIC_API_URL?.startsWith("https"),
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
       sameSite: "lax",

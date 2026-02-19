@@ -25,7 +25,7 @@ import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { REGIONS, LANGUAGES } from "@/lib/game-data";
+import { REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 interface UserGame {
@@ -256,6 +256,18 @@ export default function ProfileScreen() {
               </ThemedText>
             </Pressable>
           </View>
+          {userGames.length > 0 && (() => {
+            const ps = userGames.find((g) => g.playstyle)?.playstyle;
+            const psData = PLAYSTYLES.find((p) => p.id === ps);
+            return ps && psData ? (
+              <View style={styles.playstyleRow}>
+                <Feather name={psData.icon as any} size={16} color={theme.primary} />
+                <ThemedText style={[styles.playstyleText, { color: theme.primary }]}>
+                  {t(`gameData.playstyles.${ps}`)}
+                </ThemedText>
+              </View>
+            ) : null;
+          })()}
           <View style={styles.gamesGrid}>
             {userGames.length > 0 ? (
               userGames.map((game, index) => (
@@ -491,6 +503,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginLeft: 4,
+  },
+  playstyleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.xs,
+  },
+  playstyleText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   gamesGrid: {
     flexDirection: "row",
