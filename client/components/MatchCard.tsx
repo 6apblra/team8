@@ -2,6 +2,11 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -12,7 +17,6 @@ interface MatchCardProps {
   lastMessage?: string;
   timestamp?: Date | null;
   unreadCount?: number;
-  gameIcon?: string;
   onPress: () => void;
 }
 
@@ -21,26 +25,34 @@ const AVATAR_PLACEHOLDERS = [
   "https://api.dicebear.com/7.x/avataaars/png?seed=match2",
 ];
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function MatchCard({
   nickname,
   avatarUrl,
   lastMessage,
   timestamp,
   unreadCount = 0,
-  gameIcon,
   onPress,
 }: MatchCardProps) {
   const { theme } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const formatTime = (date: Date | null | undefined) => {
     if (!date) return "";
     const now = new Date();
     const diff = now.getTime() - new Date(date).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
     const days = Math.floor(hours / 24);
-
+    if (days > 6) return new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
     if (days > 0) return `${days}d`;
     if (hours > 0) return `${hours}h`;
+    if (mins > 0) return `${mins}m`;
     return "now";
   };
 
@@ -48,50 +60,100 @@ export function MatchCard({
     avatarUrl ||
     AVATAR_PLACEHOLDERS[Math.floor(Math.random() * AVATAR_PLACEHOLDERS.length)];
 
+  const isNew = !lastMessage;
+  const hasUnread = unreadCount > 0;
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }: { pressed: boolean }) => [
+      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 250 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 250 }); }}
+      style={[
+        animatedStyle,
         styles.container,
         {
-          backgroundColor: theme.backgroundDefault,
-          opacity: pressed ? 0.8 : 1,
+          backgroundColor: hasUnread
+            ? `${theme.primary}0D`
+            : theme.backgroundDefault,
+          borderColor: hasUnread
+            ? `${theme.primary}30`
+            : theme.border,
         },
       ]}
     >
-      <View style={styles.avatarContainer}>
-        <Image
-          source={{ uri: avatar }}
-          style={styles.avatar}
-          contentFit="cover"
-        />
-        <View style={[styles.onlineDot, { backgroundColor: theme.success }]} />
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <ThemedText style={[styles.nickname, { color: theme.text }]}>{nickname}</ThemedText>
-          {timestamp ? (
-            <ThemedText style={[styles.time, { color: theme.textSecondary }]}>{formatTime(timestamp)}</ThemedText>
-          ) : null}
-        </View>
-        {lastMessage ? (
-          <ThemedText style={[styles.message, { color: theme.textSecondary }]} numberOfLines={1}>
-            {lastMessage}
-          </ThemedText>
+      {/* Avatar with ring */}
+      <View style={styles.avatarWrap}>
+        {hasUnread || isNew ? (
+          <View style={[
+            styles.avatarRing,
+            {
+              borderColor: isNew ? theme.secondary : theme.primary,
+              shadowColor: isNew ? theme.secondary : theme.primary,
+            },
+          ]}>
+            <Image source={{ uri: avatar }} style={styles.avatar} contentFit="cover" />
+          </View>
         ) : (
-          <ThemedText style={[styles.message, { color: theme.primary }]}>
-            New match! Say hello
-          </ThemedText>
+          <Image source={{ uri: avatar }} style={[styles.avatar, styles.avatarNoRing]} contentFit="cover" />
         )}
       </View>
 
-      {unreadCount > 0 ? (
-        <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-          <ThemedText style={styles.badgeText}>{unreadCount}</ThemedText>
+      {/* Text content */}
+      <View style={styles.content}>
+        <View style={styles.headerRow}>
+          <ThemedText
+            style={[
+              styles.nickname,
+              { color: theme.text, fontWeight: hasUnread ? "700" : "600" },
+            ]}
+            numberOfLines={1}
+          >
+            {nickname}
+          </ThemedText>
+          {timestamp && (
+            <ThemedText style={[styles.time, { color: theme.textSecondary }]}>
+              {formatTime(timestamp)}
+            </ThemedText>
+          )}
         </View>
-      ) : null}
-    </Pressable>
+
+        <View style={styles.messageRow}>
+          {isNew ? (
+            <>
+              <Feather name="zap" size={13} color={theme.secondary} />
+              <ThemedText style={[styles.newMatchText, { color: theme.secondary }]}>
+                New match! Say hello
+              </ThemedText>
+            </>
+          ) : (
+            <ThemedText
+              style={[
+                styles.message,
+                { color: hasUnread ? theme.text : theme.textSecondary,
+                  fontWeight: hasUnread ? "500" : "400" },
+              ]}
+              numberOfLines={1}
+            >
+              {lastMessage}
+            </ThemedText>
+          )}
+        </View>
+      </View>
+
+      {/* Unread badge */}
+      {hasUnread && (
+        <View style={[styles.unreadBadge, { backgroundColor: theme.primary }]}>
+          <ThemedText style={styles.unreadText}>
+            {unreadCount > 99 ? "99+" : String(unreadCount)}
+          </ThemedText>
+        </View>
+      )}
+
+      {/* Chevron for new match */}
+      {isNew && (
+        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+      )}
+    </AnimatedPressable>
   );
 }
 
@@ -99,57 +161,78 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
     gap: Spacing.md,
   },
-  avatarContainer: {
-    position: "relative",
+  avatarWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
   },
-  onlineDot: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: "#1A1F2E",
+  avatarNoRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   content: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
-  header: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: Spacing.sm,
   },
   nickname: {
     fontSize: 16,
-    fontWeight: "600",
+    flex: 1,
   },
   time: {
     fontSize: 12,
   },
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
   message: {
     fontSize: 14,
+    flex: 1,
   },
-  badge: {
-    width: 22,
+  newMatchText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  unreadBadge: {
+    minWidth: 22,
     height: 22,
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 5,
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "600",
+  unreadText: {
+    fontSize: 11,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
 });
