@@ -6,6 +6,7 @@ import {
   Alert,
   ScrollView,
   Switch,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -14,19 +15,33 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from "react-native-reanimated";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { Card } from "@/components/Card";
 import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Spacing, BorderRadius } from "@/constants/theme";
-import { REGIONS, LANGUAGES, PLAYSTYLES } from "@/lib/game-data";
+import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
+import { PLAYSTYLES } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const { width: W } = Dimensions.get("window");
+const BANNER_HEIGHT = 160;
+const AVATAR_SIZE = 96;
 
 interface UserGame {
   gameId: string;
@@ -56,12 +71,175 @@ interface ProfileData {
   availability: { dayOfWeek: number; startTime: string; endTime: string }[];
 }
 
+// ── Animated glow ring around avatar ───────────────────────────────────────
+function AvatarGlow({ color }: { color: string }) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.14, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
+    );
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.15, { duration: 1800 }),
+        withTiming(0.5, { duration: 1800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.avatarGlow,
+        { backgroundColor: color },
+        style,
+      ]}
+      pointerEvents="none"
+    />
+  );
+}
+
+// ── Live pulse dot ───────────────────────────────────────────────────────────
+function PulseDot({ color }: { color: string }) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.8, { duration: 800 }),
+        withTiming(1, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.2, { duration: 800 }),
+        withTiming(1, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={styles.pulseDotWrap}>
+      <Animated.View style={[styles.pulseDotRing, { backgroundColor: `${color}40` }, style]} />
+      <View style={[styles.pulseDotCore, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+// ── Section header ───────────────────────────────────────────────────────────
+function SectionHeader({
+  title,
+  color,
+  action,
+}: {
+  title: string;
+  color: string;
+  action?: { label: string; onPress: () => void };
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderLeft}>
+        <View style={[styles.sectionDot, { backgroundColor: color }]} />
+        <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>{title}</ThemedText>
+      </View>
+      {action && (
+        <Pressable
+          onPress={action.onPress}
+          style={({ pressed }) => [styles.sectionAction, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Feather name="edit-2" size={13} color={color} />
+          <ThemedText style={[styles.sectionActionText, { color }]}>{action.label}</ThemedText>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// ── Settings row ─────────────────────────────────────────────────────────────
+function SettingRow({
+  icon,
+  iconBg,
+  label,
+  labelColor,
+  onPress,
+  last,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  iconBg: string;
+  label: string;
+  labelColor?: string;
+  onPress: () => void;
+  last?: boolean;
+}) {
+  const { theme } = useTheme();
+  return (
+    <>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <View style={[styles.settingIconWrap, { backgroundColor: iconBg }]}>
+          <Feather name={icon} size={16} color="#fff" />
+        </View>
+        <ThemedText style={[styles.settingLabel, { color: labelColor ?? theme.text }]}>
+          {label}
+        </ThemedText>
+        <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+      </Pressable>
+      {!last && <View style={[styles.settingDivider, { backgroundColor: theme.border, marginLeft: 52 }]} />}
+    </>
+  );
+}
+
+// ── Stat chip ─────────────────────────────────────────────────────────────────
+function StatChip({
+  icon,
+  label,
+  color,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  color: string;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.statChip, { backgroundColor: `${color}15`, borderColor: `${color}30` }]}>
+      <Feather name={icon} size={13} color={color} />
+      <ThemedText style={[styles.statChipText, { color }]}>{label}</ThemedText>
+    </View>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile, logout } = useAuth();
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -70,6 +248,30 @@ export default function ProfileScreen() {
   const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
   const [remainingMinutes, setRemainingMinutes] = useState<number | null>(null);
 
+  // Staggered entrance
+  const heroAnim = useSharedValue(0);
+  const section1Anim = useSharedValue(0);
+  const section2Anim = useSharedValue(0);
+  const section3Anim = useSharedValue(0);
+
+  useEffect(() => {
+    heroAnim.value = withSpring(1, { damping: 20, stiffness: 80 });
+    section1Anim.value = withDelay(120, withSpring(1, { damping: 20, stiffness: 80 }));
+    section2Anim.value = withDelay(220, withSpring(1, { damping: 20, stiffness: 80 }));
+    section3Anim.value = withDelay(320, withSpring(1, { damping: 20, stiffness: 80 }));
+  }, []);
+
+  const makeEntranceStyle = (anim: { value: number }) =>
+    useAnimatedStyle(() => ({
+      opacity: anim.value,
+      transform: [{ translateY: (1 - anim.value) * 20 }],
+    }));
+
+  const heroStyle = makeEntranceStyle(heroAnim);
+  const s1Style = makeEntranceStyle(section1Anim);
+  const s2Style = makeEntranceStyle(section2Anim);
+  const s3Style = makeEntranceStyle(section3Anim);
+
   const { data: profileData } = useQuery<ProfileData>({
     queryKey: ["/api/profile", user?.id],
     enabled: !!user?.id && !!profile,
@@ -77,370 +279,287 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (profileData?.profile) {
-      const { isAvailableNow: available, availableUntil: until } =
-        profileData.profile;
+      const { isAvailableNow: available, availableUntil: until } = profileData.profile;
       setIsAvailableNow(!!available);
       setAvailableUntil(until ? new Date(until) : null);
     }
   }, [profileData]);
 
   useEffect(() => {
-    if (!isAvailableNow || !availableUntil) {
-      setRemainingMinutes(null);
-      return;
-    }
-    const updateRemaining = () => {
-      const now = new Date();
-      const diff = availableUntil.getTime() - now.getTime();
-      if (diff <= 0) {
-        setIsAvailableNow(false);
-        setAvailableUntil(null);
-        setRemainingMinutes(null);
-      } else {
-        setRemainingMinutes(Math.ceil(diff / 60000));
-      }
+    if (!isAvailableNow || !availableUntil) { setRemainingMinutes(null); return; }
+    const update = () => {
+      const diff = availableUntil.getTime() - Date.now();
+      if (diff <= 0) { setIsAvailableNow(false); setAvailableUntil(null); setRemainingMinutes(null); }
+      else setRemainingMinutes(Math.ceil(diff / 60000));
     };
-    updateRemaining();
-    const interval = setInterval(updateRemaining, 60000);
-    return () => clearInterval(interval);
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
   }, [isAvailableNow, availableUntil]);
 
   const setAvailableMutation = useMutation({
-    mutationFn: async (durationMinutes: number) => {
-      return apiRequest<{ success: boolean; availableUntil: string }>(
-        "POST",
-        "/api/available-now",
-        { durationMinutes },
-      );
-    },
+    mutationFn: (mins: number) =>
+      apiRequest<{ success: boolean; availableUntil: string }>("POST", "/api/available-now", { durationMinutes: mins }),
     onSuccess: (data) => {
       setIsAvailableNow(true);
       setAvailableUntil(new Date(data.availableUntil));
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (error) => {
-      console.error("Set available error:", error);
-    },
   });
 
   const clearAvailableMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest<{ success: boolean }>("DELETE", "/api/available-now");
-    },
+    mutationFn: () => apiRequest<{ success: boolean }>("DELETE", "/api/available-now"),
     onSuccess: () => {
       setIsAvailableNow(false);
       setAvailableUntil(null);
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
-    onError: (error) => {
-      console.error("Clear available error:", error);
-    },
   });
-
-  const toggleAvailableNow = () => {
-    if (isAvailableNow) {
-      clearAvailableMutation.mutate();
-    } else {
-      setAvailableMutation.mutate(60);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert(t("profile.signOut"), t("profile.signOutConfirm"), [
       { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("profile.signOut"),
-        style: "destructive",
-        onPress: logout,
-      },
+      { text: t("profile.signOut"), style: "destructive", onPress: logout },
     ]);
-  };
-
-  const handleEditProfile = () => {
-    navigation.navigate("EditProfile");
   };
 
   const displayProfile = profileData?.profile || profile;
   const userGames = profileData?.userGames || [];
-
-  const avatarUrl =
-    displayProfile?.avatarUrl ||
-    `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.id}`;
+  const avatarUrl = displayProfile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.id}`;
 
   const regionLabel = displayProfile?.region
     ? t(`gameData.regions.${displayProfile.region}`)
     : displayProfile?.region;
+
   const languageLabels =
-    displayProfile?.languages
-      ?.map((l: string) => t(`gameData.languages.${l}`))
-      .join(", ") || t("profile.notSet");
+    displayProfile?.languages?.map((l: string) => t(`gameData.languages.${l}`)).join(", ") ||
+    t("profile.notSet");
+
+  const primaryGame = userGames.find((g) => g.isPrimary) ?? userGames[0];
+  const bannerColor = primaryGame ? (GameColors[primaryGame.gameId] || theme.primary) : theme.primary;
+
+  const playstyleKey = userGames.find((g) => g.playstyle)?.playstyle;
+  const psData = PLAYSTYLES.find((p) => p.id === playstyleKey);
 
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: headerHeight + Spacing.lg,
-            paddingBottom: tabBarHeight + Spacing.xl,
-          },
+          styles.scroll,
+          { paddingTop: headerHeight, paddingBottom: tabBarHeight + Spacing.xl },
         ]}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Pressable onPress={handleEditProfile}>
-            <Image
-              source={{ uri: avatarUrl }}
-              style={[styles.avatar, { backgroundColor: theme.backgroundDefault }]}
-              contentFit="cover"
-            />
-            <View style={[styles.editBadge, { borderColor: theme.backgroundRoot }]}>
-              <Feather name="edit-2" size={14} color="#FFFFFF" />
-            </View>
-          </Pressable>
-          <ThemedText type="h2" style={[styles.nickname, { color: theme.text }]}>
-            {displayProfile?.nickname || "Player"}
-          </ThemedText>
+        {/* ── Hero banner ── */}
+        <Animated.View style={heroStyle}>
+          {/* Gradient banner */}
+          <LinearGradient
+            colors={[`${bannerColor}55`, `${bannerColor}22`, "transparent"]}
+            style={[styles.banner, { height: BANNER_HEIGHT }]}
+          />
 
-          {userGames.find((g) => g.isPrimary) && (
-            <View style={{ marginTop: 4 }}>
-              <GameBadge
-                game={userGames.find((g) => g.isPrimary)!.gameId}
-                size="small"
-                rank={userGames.find((g) => g.isPrimary)!.rank || undefined}
-              />
-            </View>
-          )}
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Feather name="map-pin" size={16} color={theme.textSecondary} />
-              <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>{regionLabel}</ThemedText>
-            </View>
-            {displayProfile?.micEnabled ? (
-              <View style={styles.infoItem}>
-                <Feather name="mic" size={16} color={theme.success} />
-                <ThemedText style={[styles.infoText, { color: theme.success }]}>
-                  {t("profile.micOn")}
-                </ThemedText>
+          {/* Avatar area */}
+          <View style={styles.avatarSection}>
+            <Pressable onPress={() => navigation.navigate("EditProfile")} style={styles.avatarWrap}>
+              <AvatarGlow color={bannerColor} />
+              <View style={[styles.avatarRing, { borderColor: `${bannerColor}60` }]}>
+                <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
               </View>
-            ) : null}
-          </View>
-        </View>
-
-        {displayProfile?.bio ? (
-          <Card elevation={1} style={styles.bioCard}>
-            <ThemedText style={[styles.bioText, { color: theme.text }]}>{displayProfile.bio}</ThemedText>
-          </Card>
-        ) : null}
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-              {t("profile.games")}
-            </ThemedText>
-            <Pressable
-              onPress={() => navigation.navigate("EditGames")}
-              style={({ pressed }) => [
-                styles.editButton,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="edit-2" size={16} color={theme.primary} />
-              <ThemedText
-                style={[styles.editButtonText, { color: theme.primary }]}
-              >
-                {t("common.edit")}
-              </ThemedText>
+              {/* Edit badge */}
+              <View style={[styles.editBadge, { backgroundColor: theme.primary, borderColor: theme.backgroundRoot }]}>
+                <Feather name="camera" size={12} color="#fff" />
+              </View>
             </Pressable>
+
+            <View style={styles.nameBlock}>
+              <View style={styles.nameRow}>
+                <ThemedText style={[styles.nickname, { color: theme.text }]}>
+                  {displayProfile?.nickname || "Player"}
+                </ThemedText>
+                {displayProfile?.age ? (
+                  <ThemedText style={[styles.age, { color: theme.textSecondary }]}>
+                    {displayProfile.age}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <ThemedText style={[styles.email, { color: theme.textSecondary }]}>
+                {user?.email}
+              </ThemedText>
+            </View>
           </View>
-          {userGames.length > 0 && (() => {
-            const ps = userGames.find((g) => g.playstyle)?.playstyle;
-            const psData = PLAYSTYLES.find((p) => p.id === ps);
-            return ps && psData ? (
-              <View style={styles.playstyleRow}>
-                <Feather name={psData.icon as any} size={16} color={theme.primary} />
+
+          {/* Stat chips */}
+          <View style={styles.statsRow}>
+            {regionLabel ? (
+              <StatChip icon="map-pin" label={String(regionLabel)} color={theme.primary} />
+            ) : null}
+            {displayProfile?.micEnabled && (
+              <StatChip icon="mic" label={t("profile.micOn")} color={theme.success} />
+            )}
+            {userGames.length > 0 && (
+              <StatChip icon="monitor" label={`${userGames.length} games`} color={theme.secondary} />
+            )}
+            {isAvailableNow && (
+              <StatChip icon="zap" label="Ready to Play" color={theme.success} />
+            )}
+          </View>
+
+          {/* Bio */}
+          {displayProfile?.bio ? (
+            <View style={[styles.bioCard, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+              <Feather name="message-square" size={14} color={theme.textSecondary} style={{ marginTop: 2 }} />
+              <ThemedText style={[styles.bioText, { color: theme.text }]}>
+                {displayProfile.bio}
+              </ThemedText>
+            </View>
+          ) : null}
+        </Animated.View>
+
+        <View style={styles.sections}>
+          {/* ── Games ── */}
+          <Animated.View style={[styles.section, s1Style]}>
+            <SectionHeader
+              title={t("profile.games")}
+              color={theme.secondary}
+              action={{ label: t("common.edit"), onPress: () => navigation.navigate("EditGames") }}
+            />
+            {psData && playstyleKey && (
+              <View style={[styles.playstyleChip, { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}30` }]}>
+                <Feather name={psData.icon as any} size={14} color={theme.primary} />
                 <ThemedText style={[styles.playstyleText, { color: theme.primary }]}>
-                  {t(`gameData.playstyles.${ps}`)}
+                  {t(`gameData.playstyles.${playstyleKey}`)}
                 </ThemedText>
               </View>
-            ) : null;
-          })()}
-          <View style={styles.gamesGrid}>
+            )}
             {userGames.length > 0 ? (
-              userGames.map((game, index) => (
-                <GameBadge
-                  key={index}
-                  game={game.gameId}
-                  rank={game.rank || undefined}
-                  role={game.roles?.[0]}
-                  size="medium"
-                />
-              ))
+              <View style={styles.gamesGrid}>
+                {userGames.map((game, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.gameCard,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        borderColor: theme.border,
+                        borderLeftColor: GameColors[game.gameId] || theme.primary,
+                      },
+                    ]}
+                  >
+                    <GameBadge
+                      game={game.gameId}
+                      rank={game.rank || undefined}
+                      role={game.roles?.[0]}
+                      size="medium"
+                    />
+                    {game.isPrimary && (
+                      <View style={[styles.primaryBadge, { backgroundColor: `${theme.secondary}20` }]}>
+                        <ThemedText style={[styles.primaryText, { color: theme.secondary }]}>main</ThemedText>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
             ) : (
               <Pressable
                 onPress={() => navigation.navigate("EditGames")}
-                style={[styles.addGamesButton, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
+                style={[styles.addGamesBtn, { borderColor: theme.border }]}
               >
-                <Feather name="plus-circle" size={24} color={theme.primary} />
-                <ThemedText
-                  style={[styles.addGamesText, { color: theme.primary }]}
-                >
+                <Feather name="plus-circle" size={22} color={theme.primary} />
+                <ThemedText style={[styles.addGamesText, { color: theme.primary }]}>
                   {t("profile.addGames")}
                 </ThemedText>
               </Pressable>
             )}
-          </View>
-        </View>
+          </Animated.View>
 
-        <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("profile.details")}
-          </ThemedText>
-          <Card elevation={1}>
-            <View style={styles.detailRow}>
-              <Feather name="globe" size={18} color={theme.textSecondary} />
-              <ThemedText style={[styles.detailLabel, { color: theme.text }]}>{t("profile.languagesLabel")}</ThemedText>
-              <ThemedText style={[styles.detailValue, { color: theme.textSecondary }]}>
-                {languageLabels}
-              </ThemedText>
-            </View>
-            {displayProfile?.discordTag ? (
-              <View style={styles.detailRow}>
-                <Feather
-                  name="message-square"
-                  size={18}
-                  color={theme.textSecondary}
+          {/* ── Activity & Details ── */}
+          <Animated.View style={[styles.section, s2Style]}>
+            <SectionHeader title={t("profile.activityStatus")} color={isAvailableNow ? theme.success : theme.primary} />
+            <View style={[styles.card, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+              <View style={styles.availableRow}>
+                <View style={styles.availableLeft}>
+                  {isAvailableNow ? (
+                    <PulseDot color={theme.success} />
+                  ) : (
+                    <View style={[styles.inactiveDot, { backgroundColor: theme.textSecondary }]} />
+                  )}
+                  <View style={styles.availableTexts}>
+                    <ThemedText style={[styles.availableTitle, { color: theme.text }]}>
+                      {t("profile.readyToPlay")}
+                    </ThemedText>
+                    <ThemedText style={[styles.availableDesc, { color: theme.textSecondary }]}>
+                      {isAvailableNow ? t("profile.readyToPlayActive") : t("profile.readyToPlayInactive")}
+                    </ThemedText>
+                  </View>
+                </View>
+                <Switch
+                  value={isAvailableNow}
+                  onValueChange={() =>
+                    isAvailableNow ? clearAvailableMutation.mutate() : setAvailableMutation.mutate(60)
+                  }
+                  trackColor={{ false: theme.backgroundSecondary, true: `${theme.success}80` }}
+                  thumbColor={isAvailableNow ? theme.success : theme.textSecondary}
                 />
-                <ThemedText style={[styles.detailLabel, { color: theme.text }]}>{t("profile.discord")}</ThemedText>
-                <ThemedText style={[styles.detailValue, { color: theme.textSecondary }]}>
-                  {displayProfile.discordTag}
-                </ThemedText>
               </View>
-            ) : null}
-          </Card>
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("profile.activityStatus")}
-          </ThemedText>
-          <Card elevation={1}>
-            <View style={styles.availableRow}>
-              <View style={styles.availableInfo}>
-                <View style={styles.availableHeader}>
-                  <Feather
-                    name="zap"
-                    size={20}
-                    color={
-                      isAvailableNow ? theme.secondary : theme.textSecondary
-                    }
-                  />
-                  <ThemedText style={[styles.settingLabel, { flex: 0, color: theme.text }]}>
-                    {t("profile.readyToPlay")}
+              {isAvailableNow && remainingMinutes !== null && (
+                <View style={[styles.timerRow, { borderTopColor: theme.border }]}>
+                  <Feather name="clock" size={13} color={theme.success} />
+                  <ThemedText style={[styles.timerText, { color: theme.success }]}>
+                    {remainingMinutes >= 60
+                      ? t("profile.activeForHM", {
+                          hours: String(Math.floor(remainingMinutes / 60)),
+                          minutes: String(remainingMinutes % 60),
+                        })
+                      : t("profile.activeForM", { minutes: String(remainingMinutes) })}
                   </ThemedText>
                 </View>
-                <ThemedText style={[styles.availableDescription, { color: theme.textSecondary }]}>
-                  {isAvailableNow
-                    ? t("profile.readyToPlayActive")
-                    : t("profile.readyToPlayInactive")}
-                </ThemedText>
-              </View>
-              <Switch
-                value={isAvailableNow}
-                onValueChange={toggleAvailableNow}
-                trackColor={{ false: "#3A3F47", true: theme.secondary }}
-                thumbColor="#FFFFFF"
-              />
+              )}
             </View>
-            {isAvailableNow && remainingMinutes !== null ? (
-              <View style={[styles.availableTimer, { borderTopColor: theme.border }]}>
-                <Feather name="clock" size={14} color={theme.textSecondary} />
-                <ThemedText style={[styles.timerText, { color: theme.textSecondary }]}>
-                  {remainingMinutes >= 60
-                    ? t("profile.activeForHM", { hours: String(Math.floor(remainingMinutes / 60)), minutes: String(remainingMinutes % 60) })
-                    : t("profile.activeForM", { minutes: String(remainingMinutes) })}
+
+            <SectionHeader title={t("profile.details")} color={theme.primary} />
+            <View style={[styles.card, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+              <View style={styles.detailRow}>
+                <View style={[styles.detailIconWrap, { backgroundColor: `${theme.primary}20` }]}>
+                  <Feather name="globe" size={15} color={theme.primary} />
+                </View>
+                <ThemedText style={[styles.detailLabel, { color: theme.text }]}>
+                  {t("profile.languagesLabel")}
+                </ThemedText>
+                <ThemedText style={[styles.detailValue, { color: theme.textSecondary }]}>
+                  {languageLabels}
                 </ThemedText>
               </View>
-            ) : null}
-          </Card>
-        </View>
+              {displayProfile?.discordTag ? (
+                <>
+                  <View style={[styles.detailDivider, { backgroundColor: theme.border }]} />
+                  <View style={styles.detailRow}>
+                    <View style={[styles.detailIconWrap, { backgroundColor: "rgba(88,101,242,0.2)" }]}>
+                      <Feather name="message-square" size={15} color="#5865F2" />
+                    </View>
+                    <ThemedText style={[styles.detailLabel, { color: theme.text }]}>
+                      {t("profile.discord")}
+                    </ThemedText>
+                    <ThemedText style={[styles.detailValue, { color: "#5865F2" }]}>
+                      {displayProfile.discordTag}
+                    </ThemedText>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </Animated.View>
 
-        <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("profile.settingsSection")}
-          </ThemedText>
-          <Card elevation={1}>
-            <Pressable
-              onPress={handleEditProfile}
-              style={({ pressed }: { pressed: boolean }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="edit" size={18} color={theme.text} />
-              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.editProfile")}</ThemedText>
-              <Feather
-                name="chevron-right"
-                size={20}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
-            <Pressable
-              onPress={() => navigation.navigate("Filters")}
-              style={({ pressed }: { pressed: boolean }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="sliders" size={18} color={theme.text} />
-              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.filters")}</ThemedText>
-              <Feather
-                name="chevron-right"
-                size={20}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
-            <Pressable
-              onPress={() => navigation.navigate("Settings")}
-              style={({ pressed }: { pressed: boolean }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="settings" size={18} color={theme.text} />
-              <ThemedText style={[styles.settingLabel, { color: theme.text }]}>{t("profile.settings")}</ThemedText>
-              <Feather
-                name="chevron-right"
-                size={20}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-            <View style={[styles.settingDivider, { backgroundColor: theme.border }]} />
-            <Pressable
-              onPress={handleLogout}
-              style={({ pressed }: { pressed: boolean }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="log-out" size={18} color={theme.danger} />
-              <ThemedText
-                style={[styles.settingLabel, { color: theme.danger }]}
-              >
-                {t("profile.signOut")}
-              </ThemedText>
-              <Feather
-                name="chevron-right"
-                size={20}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-          </Card>
+          {/* ── Settings ── */}
+          <Animated.View style={[styles.section, s3Style]}>
+            <SectionHeader title={t("profile.settingsSection")} color={theme.primary} />
+            <View style={[styles.card, { backgroundColor: theme.backgroundDefault, borderColor: theme.border, padding: 0, overflow: "hidden" }]}>
+              <SettingRow icon="edit" iconBg={theme.primary} label={t("profile.editProfile")} onPress={() => navigation.navigate("EditProfile")} />
+              <SettingRow icon="sliders" iconBg={theme.secondary} label={t("profile.filters")} onPress={() => navigation.navigate("Filters")} />
+              <SettingRow icon="settings" iconBg={theme.backgroundTertiary || "#303648"} label={t("profile.settings")} onPress={() => navigation.navigate("Settings")} />
+              <SettingRow icon="log-out" iconBg={theme.danger} label={t("profile.signOut")} labelColor={theme.danger} onPress={handleLogout} last />
+            </View>
+          </Animated.View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -448,165 +567,322 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scroll: { flexGrow: 1 },
+
+  // Banner + hero
+  banner: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
   },
-  content: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.xl,
+  avatarSection: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: Spacing.xl,
+    paddingTop: BANNER_HEIGHT - AVATAR_SIZE / 2,
+    gap: Spacing.lg,
   },
-  header: {
+  avatarWrap: {
     alignItems: "center",
-    gap: Spacing.sm,
+    justifyContent: "center",
+  },
+  avatarGlow: {
+    position: "absolute",
+    width: AVATAR_SIZE + 28,
+    height: AVATAR_SIZE + 28,
+    borderRadius: (AVATAR_SIZE + 28) / 2,
+  },
+  avatarRing: {
+    width: AVATAR_SIZE + 4,
+    height: AVATAR_SIZE + 4,
+    borderRadius: (AVATAR_SIZE + 4) / 2,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
   },
   editBadge: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#00D9FF",
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
+    borderWidth: 2,
+  },
+  nameBlock: {
+    flex: 1,
+    paddingBottom: 4,
+    gap: 2,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: Spacing.sm,
   },
   nickname: {
-    marginTop: Spacing.sm,
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
-  infoRow: {
+  age: {
+    fontSize: 17,
+    fontWeight: "400",
+  },
+  email: {
+    fontSize: 13,
+  },
+
+  // Stats chips
+  statsRow: {
     flexDirection: "row",
-    gap: Spacing.lg,
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
   },
-  infoItem: {
+  statChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
-  infoText: {
-    fontSize: 14,
+  statChipText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
+
+  // Bio
   bioCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
     padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
   },
   bioText: {
+    flex: 1,
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 21,
+    fontStyle: "italic",
+  },
+
+  // Sections
+  sections: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    gap: Spacing["2xl"],
   },
   section: {
     gap: Spacing.md,
   },
-  sectionTitle: {
-    marginLeft: 4,
-  },
-  playstyleRow: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  sectionAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sectionActionText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // Cards
+  card: {
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    padding: Spacing.xl,
+  },
+
+  // Games
+  playstyleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     gap: 6,
-    marginBottom: Spacing.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
   playstyleText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   gamesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  emptyText: {
-    fontSize: 14,
-  },
-  detailRow: {
+  gameCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
-  },
-  detailLabel: {
-    flex: 1,
-    fontSize: 14,
-  },
-  detailValue: {
-    fontSize: 14,
-  },
-  settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.lg,
-    gap: Spacing.md,
-  },
-  settingLabel: {
-    flex: 1,
-    fontSize: 16,
-  },
-  settingDivider: {
-    height: 1,
-    marginLeft: 34,
-  },
-  availableRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
-  },
-  availableInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  availableHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  availableDescription: {
-    fontSize: 13,
-    marginLeft: 28,
-  },
-  availableTimer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    marginTop: Spacing.sm,
-  },
-  timerText: {
-    fontSize: 13,
-  },
-  sectionHeader: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderLeftWidth: 3,
   },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 4,
+  primaryBadge: {
     paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
   },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
+  primaryText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
   },
-  addGamesButton: {
+  addGamesBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 12,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderStyle: "dashed",
   },
   addGamesText: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+
+  // Activity
+  availableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  availableLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  pulseDotWrap: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pulseDotRing: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  pulseDotCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  inactiveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    opacity: 0.4,
+  },
+  availableTexts: { flex: 1 },
+  availableTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  availableDesc: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingTop: Spacing.md,
+    marginTop: Spacing.md,
+    borderTopWidth: 1,
+  },
+  timerText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // Details
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  detailIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailLabel: {
+    flex: 1,
+    fontSize: 15,
+  },
+  detailValue: {
+    fontSize: 14,
+  },
+  detailDivider: {
+    height: 1,
+    marginVertical: Spacing.sm,
+    marginLeft: 48,
+  },
+
+  // Settings
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  settingIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingLabel: {
+    flex: 1,
+    fontSize: 15,
+  },
+  settingDivider: {
+    height: 1,
   },
 });
