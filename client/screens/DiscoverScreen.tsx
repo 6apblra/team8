@@ -15,6 +15,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  Easing,
   runOnJS,
   interpolate,
 } from "react-native-reanimated";
@@ -220,9 +222,11 @@ export default function DiscoverScreen() {
       translateY.value = event.translationY;
     })
     .onEnd((event) => {
+      const exitTiming = { duration: 200, easing: Easing.out(Easing.quad) };
+
       if (event.translationY < -100 && Math.abs(event.translationX) < 50) {
-        translateX.value = withSpring(0, { damping: 20 });
-        translateY.value = withSpring(-500, { damping: 20 }, (finished) => {
+        translateX.value = withTiming(0, exitTiming);
+        translateY.value = withTiming(-500, exitTiming, (finished) => {
           if (finished) {
             translateX.value = 0;
             translateY.value = 0;
@@ -230,10 +234,10 @@ export default function DiscoverScreen() {
           }
         });
       } else if (event.translationX > SWIPE_THRESHOLD) {
-        translateY.value = withSpring(0, { damping: 20 });
-        translateX.value = withSpring(
+        translateY.value = withTiming(0, exitTiming);
+        translateX.value = withTiming(
           SCREEN_WIDTH * 1.5,
-          { damping: 20 },
+          exitTiming,
           (finished) => {
             if (finished) {
               translateX.value = 0;
@@ -243,10 +247,10 @@ export default function DiscoverScreen() {
           },
         );
       } else if (event.translationX < -SWIPE_THRESHOLD) {
-        translateY.value = withSpring(0, { damping: 20 });
-        translateX.value = withSpring(
+        translateY.value = withTiming(0, exitTiming);
+        translateX.value = withTiming(
           -SCREEN_WIDTH * 1.5,
-          { damping: 20 },
+          exitTiming,
           (finished) => {
             if (finished) {
               translateX.value = 0;
@@ -280,6 +284,7 @@ export default function DiscoverScreen() {
           ? SCREEN_WIDTH * 1.5
           : 0;
     const targetY = direction === "up" ? -500 : 0;
+    const exitTiming = { duration: 200, easing: Easing.out(Easing.quad) };
 
     const onComplete = (finished?: boolean) => {
       "worklet";
@@ -291,11 +296,11 @@ export default function DiscoverScreen() {
     };
 
     if (direction === "up") {
-      translateX.value = withSpring(0, { damping: 20 });
-      translateY.value = withSpring(targetY, { damping: 20 }, onComplete);
+      translateX.value = withTiming(0, exitTiming);
+      translateY.value = withTiming(targetY, exitTiming, onComplete);
     } else {
-      translateY.value = withSpring(0, { damping: 20 });
-      translateX.value = withSpring(targetX, { damping: 20 }, onComplete);
+      translateY.value = withTiming(0, exitTiming);
+      translateX.value = withTiming(targetX, exitTiming, onComplete);
     }
   };
 

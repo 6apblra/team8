@@ -577,8 +577,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fromUserId = req.session.userId!;
         const { toUserId, swipeType } = req.body;
 
-        const dailyCount = await storage.getDailySwipeCount(fromUserId);
-        const limit = await storage.getSwipeLimit(fromUserId);
+        const [dailyCount, limit] = await Promise.all([
+          storage.getDailySwipeCount(fromUserId),
+          storage.getSwipeLimit(fromUserId),
+        ]);
 
         if (dailyCount >= limit) {
           return res.status(429).json({
@@ -588,37 +590,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const swipe = await storage.createSwipe({
-          fromUserId,
-          toUserId,
-          swipeType,
-        });
-
-        await storage.incrementDailySwipeCount(fromUserId);
+        const [swipe] = await Promise.all([
+          storage.createSwipe({ fromUserId, toUserId, swipeType }),
+          storage.incrementDailySwipeCount(fromUserId),
+        ]);
 
         let match = null;
         if (swipeType === "like" || swipeType === "super") {
           const isMutual = await storage.checkMutualLike(fromUserId, toUserId);
           if (isMutual) {
-            const existing = await storage.getMatchByUsers(
-              fromUserId,
-              toUserId,
-            );
+            const existing = await storage.getMatchByUsers(fromUserId, toUserId);
             if (!existing) {
               match = await storage.createMatch(fromUserId, toUserId);
               addMatchToConnections(fromUserId, toUserId, match.id);
 
-              const fromProfile = await storage.getProfile(fromUserId);
-              const toProfile = await storage.getProfile(toUserId);
-              if (toProfile)
-                notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
-              if (fromProfile)
-                notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
+              Promise.all([
+                storage.getProfile(fromUserId),
+                storage.getProfile(toUserId),
+              ]).then(([fromProfile, toProfile]) => {
+                if (toProfile)
+                  notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
+                if (fromProfile)
+                  notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
+              });
             }
           }
         }
 
-        const newCount = await storage.getDailySwipeCount(fromUserId);
+        const newCount = dailyCount + 1;
 
         return res.json({
           swipe,
