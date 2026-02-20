@@ -146,6 +146,9 @@ export default function DiscoverScreen() {
     dailyCount: number;
     limit: number;
     remaining: number;
+    superLikeCount: number;
+    superLikeLimit: number;
+    superLikesRemaining: number;
   }>({
     queryKey: ["/api/swipe-status", user?.id],
     enabled: !!user?.id,
@@ -195,6 +198,14 @@ export default function DiscoverScreen() {
       const swipeType =
         direction === "left" ? "skip" : direction === "up" ? "super" : "like";
 
+      if (swipeType === "super" && (swipeStatus?.superLikesRemaining ?? 1) <= 0) {
+        Alert.alert(
+          t("discover.superLikeLimitTitle"),
+          t("discover.superLikeLimitMessage"),
+        );
+        return;
+      }
+
       Haptics.impactAsync(
         direction === "up"
           ? Haptics.ImpactFeedbackStyle.Heavy
@@ -208,7 +219,7 @@ export default function DiscoverScreen() {
 
       setCurrentIndex((prev) => prev + 1);
     },
-    [currentCandidate, swipeMutation],
+    [currentCandidate, swipeMutation, swipeStatus],
   );
 
   const resetPosition = () => {
@@ -349,6 +360,10 @@ export default function DiscoverScreen() {
           <Feather name="heart" size={16} color={theme.primary} />
           <ThemedText style={[styles.swipeCounterText, { color: theme.textSecondary }]}>
             {t("discover.swipesLeft", { count: String(swipeStatus?.remaining ?? "...") })}
+          </ThemedText>
+          <Feather name="star" size={16} color="#FFD700" style={{ marginLeft: 12 }} />
+          <ThemedText style={[styles.swipeCounterText, { color: theme.textSecondary }]}>
+            {t("discover.superLikesLeft", { count: String(swipeStatus?.superLikesRemaining ?? "...") })}
           </ThemedText>
         </View>
 

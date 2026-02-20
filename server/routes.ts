@@ -10,9 +10,10 @@ import {
   broadcastTyping,
   broadcastPresenceChange,
   updatePresence,
+  sendToUser,
 } from "./websocket";
 import { avatarUpload, getUploadUrl } from "./upload";
-import { notifyNewMatch, notifyNewMessage } from "./push-notifications";
+import { notifyNewMatch, notifyNewMessage, notifySuperLike } from "./push-notifications";
 import { validateRequest, authLimiter } from "./middleware";
 import {
   generateToken,
@@ -577,9 +578,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fromUserId = req.session.userId!;
         const { toUserId, swipeType } = req.body;
 
-        const [dailyCount, limit] = await Promise.all([
+        const [dailyCount, limit, superLikeCount, superLikeLimit] = await Promise.all([
           storage.getDailySwipeCount(fromUserId),
           storage.getSwipeLimit(fromUserId),
+          storage.getDailySuperLikeCount(fromUserId),
+          storage.getSuperLikeLimit(fromUserId),
         ]);
 
         if (dailyCount >= limit) {
@@ -590,10 +593,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const [swipe] = await Promise.all([
+        if (swipeType === "super" && superLikeCount >= superLikeLimit) {
+          return res.status(429).json({
+            error: "Daily super like limit reached",
+            superLikeCount,
+            superLikeLimit,
+          });
+        }
+
+        const incrementTasks: Promise<any>[] = [
           storage.createSwipe({ fromUserId, toUserId, swipeType }),
           storage.incrementDailySwipeCount(fromUserId),
-        ]);
+        ];
+        if (swipeType === "super") {
+          incrementTasks.push(storage.incrementDailySuperLikeCount(fromUserId));
+        }
+        const [swipe] = await Promise.all(incrementTasks);
 
         let match = null;
         if (swipeType === "like" || swipeType === "super") {
@@ -617,7 +632,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        if (swipeType === "super") {
+          sendToUser(toUserId, { type: "super_like", fromUserId });
+          storage.getProfile(fromUserId).then((fromProfile) => {
+            if (fromProfile) {
+              notifySuperLike(toUserId, fromProfile.nickname).catch(() => {});
+            }
+          });
+        }
+
         const newCount = dailyCount + 1;
+        const newSuperCount = swipeType === "super" ? superLikeCount + 1 : superLikeCount;
 
         return res.json({
           swipe,
@@ -625,6 +650,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dailyCount: newCount,
           limit,
           remaining: limit - newCount,
+          superLikeCount: newSuperCount,
+          superLikeLimit,
+          superLikesRemaining: superLikeLimit - newSuperCount,
         });
       } catch (error) {
         log.error({ err: error }, "Swipe error");
@@ -636,12 +664,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/swipe-status", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const dailyCount = await storage.getDailySwipeCount(userId);
-      const limit = await storage.getSwipeLimit(userId);
+      const [dailyCount, limit, superLikeCount, superLikeLimit] = await Promise.all([
+        storage.getDailySwipeCount(userId),
+        storage.getSwipeLimit(userId),
+        storage.getDailySuperLikeCount(userId),
+        storage.getSuperLikeLimit(userId),
+      ]);
       return res.json({
         dailyCount,
         limit,
         remaining: limit - dailyCount,
+        superLikeCount,
+        superLikeLimit,
+        superLikesRemaining: superLikeLimit - superLikeCount,
       });
     } catch (error) {
       log.error({ err: error }, "Get swipe status error");

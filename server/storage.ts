@@ -10,6 +10,7 @@ import {
   reports,
   blocks,
   dailySwipeCounts,
+  dailySuperLikeCounts,
   type User,
   type InsertUser,
   type Profile,
@@ -172,6 +173,11 @@ export interface IStorage {
   incrementDailySwipeCount(userId: string): Promise<number>;
   getSwipeLimit(userId: string): Promise<number>;
 
+  getDailySuperLikeCount(userId: string): Promise<number>;
+  incrementDailySuperLikeCount(userId: string): Promise<number>;
+  getSuperLikeLimit(userId: string): Promise<number>;
+  getSuperLikerIds(userId: string): Promise<string[]>;
+
   updateLastSeen(userId: string): Promise<void>;
   setAvailableNow(userId: string, durationMinutes: number): Promise<void>;
   clearAvailableNow(userId: string): Promise<void>;
@@ -224,6 +230,7 @@ export class DatabaseStorage implements IStorage {
       or(eq(blocks.userId, userId), eq(blocks.blockedUserId, userId))
     );
     await db.delete(dailySwipeCounts).where(eq(dailySwipeCounts.userId, userId));
+    await db.delete(dailySuperLikeCounts).where(eq(dailySuperLikeCounts.userId, userId));
     await db.delete(availabilityWindows).where(eq(availabilityWindows.userId, userId));
     await db.delete(userGames).where(eq(userGames.userId, userId));
     await db.delete(profiles).where(eq(profiles.userId, userId));
@@ -447,12 +454,22 @@ export class DatabaseStorage implements IStorage {
       }),
     );
 
-    return result.filter((r) => r !== null) as (Profile & {
+    const filtered = result.filter((r) => r !== null) as (Profile & {
       userGames: UserGame[];
       availability: AvailabilityWindow[];
       isOnline: boolean;
       isAvailableNow: boolean;
     })[];
+
+    const superLikerIds = await this.getSuperLikerIds(userId);
+    const superLikerSet = new Set(superLikerIds);
+    filtered.sort((a, b) => {
+      const aSuper = superLikerSet.has(a.userId) ? 0 : 1;
+      const bSuper = superLikerSet.has(b.userId) ? 0 : 1;
+      return aSuper - bSuper;
+    });
+
+    return filtered;
   }
 
   async createSwipe(swipe: InsertSwipe): Promise<Swipe> {
@@ -653,6 +670,66 @@ export class DatabaseStorage implements IStorage {
   async getSwipeLimit(userId: string): Promise<number> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     return user?.isPremium ? 999 : 50;
+  }
+
+  async getDailySuperLikeCount(userId: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    const [record] = await db
+      .select()
+      .from(dailySuperLikeCounts)
+      .where(
+        and(
+          eq(dailySuperLikeCounts.userId, userId),
+          eq(dailySuperLikeCounts.date, today),
+        ),
+      );
+    return record?.count || 0;
+  }
+
+  async incrementDailySuperLikeCount(userId: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    const [existing] = await db
+      .select()
+      .from(dailySuperLikeCounts)
+      .where(
+        and(
+          eq(dailySuperLikeCounts.userId, userId),
+          eq(dailySuperLikeCounts.date, today),
+        ),
+      );
+
+    if (existing) {
+      const [updated] = await db
+        .update(dailySuperLikeCounts)
+        .set({ count: (existing.count || 0) + 1 })
+        .where(eq(dailySuperLikeCounts.id, existing.id))
+        .returning();
+      return updated.count || 0;
+    } else {
+      const [created] = await db
+        .insert(dailySuperLikeCounts)
+        .values({ userId, date: today, count: 1 })
+        .returning();
+      return created.count || 0;
+    }
+  }
+
+  async getSuperLikeLimit(userId: string): Promise<number> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user?.isPremium ? 5 : 1;
+  }
+
+  async getSuperLikerIds(userId: string): Promise<string[]> {
+    const rows = await db
+      .select({ fromUserId: swipes.fromUserId })
+      .from(swipes)
+      .where(
+        and(
+          eq(swipes.toUserId, userId),
+          eq(swipes.swipeType, "super"),
+        ),
+      );
+    return rows.map((r) => r.fromUserId);
   }
 
   async updateLastSeen(userId: string): Promise<void> {

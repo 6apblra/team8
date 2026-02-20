@@ -80,6 +80,9 @@ export default {
     swipesLeft: "{{count}} swipes left today",
     dailyLimitTitle: "Daily Limit Reached",
     dailyLimitMessage: "You've reached your daily swipe limit. Try again tomorrow!",
+    superLikesLeft: "{{count}} super likes left",
+    superLikeLimitTitle: "Super Like Limit",
+    superLikeLimitMessage: "You've used all your super likes for today. Upgrade to Premium for 5 super likes per day!",
   },
 
   matches: {

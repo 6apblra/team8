@@ -212,6 +212,21 @@ export const dailySwipeCounts = pgTable(
   (table) => [index("daily_swipes_user_date_idx").on(table.userId, table.date)],
 );
 
+export const dailySuperLikeCounts = pgTable(
+  "daily_super_like_counts",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    count: integer("count").default(0),
+  },
+  (table) => [index("daily_super_likes_user_date_idx").on(table.userId, table.date)],
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles, {
     fields: [users.id],

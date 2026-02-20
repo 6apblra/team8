@@ -80,6 +80,9 @@ export default {
     swipesLeft: "{{count}} свайпов осталось сегодня",
     dailyLimitTitle: "Дневной лимит исчерпан",
     dailyLimitMessage: "Вы израсходовали дневной лимит свайпов. Попробуйте завтра!",
+    superLikesLeft: "{{count}} супер-лайков осталось",
+    superLikeLimitTitle: "Лимит супер-лайков",
+    superLikeLimitMessage: "Вы использовали все супер-лайки на сегодня. Перейдите на Premium — 5 супер-лайков в день!",
   },
 
   matches: {

@@ -287,6 +287,13 @@ export function isUserConnected(userId: string): boolean {
   return connections.has(userId);
 }
 
+export function sendToUser(userId: string, data: any) {
+  const conn = connections.get(userId);
+  if (conn && conn.ws.readyState === WebSocket.OPEN) {
+    conn.ws.send(JSON.stringify(data));
+  }
+}
+
 export function getConnectedUserIds(): string[] {
   return Array.from(connections.keys());
 }

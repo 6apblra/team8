@@ -108,6 +108,7 @@ export const NotificationTypes = {
   NEW_MATCH: "new_match",
   NEW_MESSAGE: "new_message",
   PROFILE_LIKE: "profile_like",
+  SUPER_LIKE: "super_like",
 } as const;
 
 /**
@@ -121,6 +122,20 @@ export async function notifyNewMatch(
     title: "New Match! 🎮",
     body: `You matched with ${matchedUserNickname}! Start chatting now.`,
     data: { type: NotificationTypes.NEW_MATCH },
+  });
+}
+
+/**
+ * Send super like notification
+ */
+export async function notifySuperLike(
+  userId: string,
+  fromNickname: string,
+): Promise<void> {
+  await sendPushNotification(userId, {
+    title: "Super Like! ⭐",
+    body: `${fromNickname} super-liked you!`,
+    data: { type: NotificationTypes.SUPER_LIKE },
   });
 }
 
