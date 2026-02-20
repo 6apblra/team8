@@ -1,5 +1,10 @@
 import React from "react";
 import { StyleSheet, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -9,22 +14,32 @@ interface QuickMessageChipProps {
   onPress: () => void;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function QuickMessageChip({ message, onPress }: QuickMessageChipProps) {
   const { theme } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }: { pressed: boolean }) => [
+      onPressIn={() => { scale.value = withSpring(0.94, { damping: 15, stiffness: 300 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }); }}
+      style={[
+        animatedStyle,
         styles.chip,
         {
-          backgroundColor: theme.backgroundSecondary,
-          opacity: pressed ? 0.7 : 1,
+          backgroundColor: `${theme.primary}12`,
+          borderColor: `${theme.primary}40`,
         },
       ]}
     >
-      <ThemedText style={styles.text}>{message}</ThemedText>
-    </Pressable>
+      <ThemedText style={[styles.text, { color: theme.primary }]}>{message}</ThemedText>
+    </AnimatedPressable>
   );
 }
 
@@ -34,10 +49,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
   },
   text: {
     fontSize: 14,
-    color: "#FFFFFF",
+    fontWeight: "500",
   },
 });

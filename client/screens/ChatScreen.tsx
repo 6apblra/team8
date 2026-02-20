@@ -17,13 +17,22 @@ import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withTiming,
+  withSequence,
+} from "react-native-reanimated";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
 import { wsManager, useWebSocketMessages } from "@/lib/websocket";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { MessageBubble } from "@/components/MessageBubble";
+import { MessageBubble, TypingBubble, DateSeparator } from "@/components/MessageBubble";
 import { QuickMessageChip } from "@/components/QuickMessageChip";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -41,6 +50,10 @@ interface Message {
   createdAt: string;
 }
 
+type ListItem =
+  | { type: "message"; message: Message; isFirst: boolean; isLast: boolean }
+  | { type: "date"; date: Date; id: string };
+
 const QUICK_MESSAGE_KEYS = [
   "readyToPlay",
   "whatRole",
@@ -49,11 +62,73 @@ const QUICK_MESSAGE_KEYS = [
   "teamUpLater",
 ] as const;
 
+const AVATAR_PLACEHOLDERS = [
+  "https://api.dicebear.com/7.x/avataaars/png?seed=chat1",
+  "https://api.dicebear.com/7.x/avataaars/png?seed=chat2",
+];
+
+function ChatHeader({
+  nickname,
+  avatarUrl,
+  onOptions,
+}: {
+  nickname: string;
+  avatarUrl: string | null;
+  onOptions: () => void;
+}) {
+  const { theme } = useTheme();
+  const avatar =
+    avatarUrl ||
+    AVATAR_PLACEHOLDERS[Math.floor(Math.random() * AVATAR_PLACEHOLDERS.length)];
+
+  return (
+    <View style={[styles.headerContainer, { borderBottomColor: theme.border }]}>
+      <View style={styles.headerLeft}>
+        <View style={[styles.headerAvatarRing, { borderColor: `${theme.primary}50` }]}>
+          <Image source={{ uri: avatar }} style={styles.headerAvatar} contentFit="cover" />
+          <View style={[styles.headerOnlineDot, { backgroundColor: theme.success, borderColor: theme.backgroundRoot }]} />
+        </View>
+        <View>
+          <ThemedText style={[styles.headerNickname, { color: theme.text }]}>{nickname}</ThemedText>
+          <ThemedText style={[styles.headerStatus, { color: theme.success }]}>online</ThemedText>
+        </View>
+      </View>
+      <Pressable
+        onPress={onOptions}
+        style={({ pressed }) => [styles.headerOptions, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Feather name="more-vertical" size={22} color={theme.text} />
+      </Pressable>
+    </View>
+  );
+}
+
+function AnimatedDot({ delay }: { delay: number }) {
+  const { theme } = useTheme();
+  const opacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.3, { duration: delay }),
+        withTiming(1, { duration: 300 }),
+        withTiming(0.3, { duration: 300 }),
+      ),
+      -1,
+    );
+  }, [delay]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.View style={[styles.typingDot, { backgroundColor: theme.textSecondary }, style]} />
+  );
+}
+
 export default function ChatScreen() {
   const route = useRoute<ChatScreenRouteProp>();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { matchId, otherUserId, nickname } = route.params;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { matchId, otherUserId, nickname, avatarUrl } = route.params;
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -61,6 +136,7 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const flatListRef = useRef<FlatList>(null);
+  const sendScale = useSharedValue(1);
 
   const [message, setMessage] = useState("");
   const [showQuickMessages, setShowQuickMessages] = useState(true);
@@ -87,10 +163,45 @@ export default function ChatScreen() {
 
   const allMessages = localMessages;
 
+  // Build list items with date separators and grouping info
+  const listItems = React.useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+    let lastDate = "";
+    let lastSenderId = "";
+
+    allMessages.forEach((msg, i) => {
+      const msgDate = new Date(msg.createdAt);
+      const dateKey = msgDate.toDateString();
+
+      if (dateKey !== lastDate) {
+        items.push({ type: "date", date: msgDate, id: `date-${dateKey}` });
+        lastDate = dateKey;
+        lastSenderId = "";
+      }
+
+      const nextMsg = allMessages[i + 1];
+      const prevMsg = allMessages[i - 1];
+
+      const isFirst =
+        !prevMsg ||
+        prevMsg.senderId !== msg.senderId ||
+        new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+
+      const isLast =
+        !nextMsg ||
+        nextMsg.senderId !== msg.senderId ||
+        new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
+
+      items.push({ type: "message", message: msg, isFirst, isLast });
+      lastSenderId = msg.senderId;
+    });
+
+    return items;
+  }, [allMessages]);
+
   const handleWebSocketMessage = useCallback(
     (msg: any) => {
       if (msg.matchId !== matchId) return;
-
       switch (msg.type) {
         case "new_message":
           setLocalMessages((prev) => {
@@ -109,9 +220,7 @@ export default function ChatScreen() {
           }
           break;
         case "stop_typing":
-          if (msg.userId !== user?.id) {
-            setIsTyping(false);
-          }
+          if (msg.userId !== user?.id) setIsTyping(false);
           break;
       }
     },
@@ -134,20 +243,13 @@ export default function ChatScreen() {
   const handleTextChange = useCallback(
     (text: string) => {
       setMessage(text);
-
       if (text.length > 0) {
         sendTypingIndicator(true);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          sendTypingIndicator(false);
-        }, 2000);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => sendTypingIndicator(false), 2000);
       } else {
         sendTypingIndicator(false);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       }
     },
     [sendTypingIndicator],
@@ -156,16 +258,10 @@ export default function ChatScreen() {
   const handleReport = useCallback(
     async (reason: string) => {
       try {
-        await apiRequest("POST", "/report", {
-          reportedUserId: otherUserId,
-          reason,
-        });
+        await apiRequest("POST", "/report", { reportedUserId: otherUserId, reason });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          t("chat.reportSubmitted"),
-          t("chat.reportSubmittedMessage"),
-        );
-      } catch (error) {
+        Alert.alert(t("chat.reportSubmitted"), t("chat.reportSubmittedMessage"));
+      } catch {
         Alert.alert(t("common.error"), t("chat.failedReport"));
       }
     },
@@ -174,26 +270,21 @@ export default function ChatScreen() {
 
   const handleBlock = useCallback(async () => {
     try {
-      await apiRequest("POST", "/block", {
-        blockedUserId: otherUserId,
-      });
+      await apiRequest("POST", "/block", { blockedUserId: otherUserId });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       Alert.alert(t("chat.userBlocked"), t("chat.userBlockedMessage", { name: nickname }), [
         { text: t("common.ok"), onPress: () => navigation.goBack() },
       ]);
-    } catch (error) {
+    } catch {
       Alert.alert(t("common.error"), t("chat.failedBlock"));
     }
   }, [otherUserId, nickname, navigation, queryClient, t]);
 
   const showReportOptions = useCallback(() => {
     Alert.alert(t("chat.reportUser"), t("chat.reportWhy"), [
-      {
-        text: t("chat.reportInappropriate"),
-        onPress: () => handleReport("inappropriate_content"),
-      },
+      { text: t("chat.reportInappropriate"), onPress: () => handleReport("inappropriate_content") },
       { text: t("chat.reportHarassment"), onPress: () => handleReport("harassment") },
       { text: t("chat.reportSpam"), onPress: () => handleReport("spam") },
       { text: t("chat.reportFake"), onPress: () => handleReport("fake_profile") },
@@ -222,32 +313,42 @@ export default function ChatScreen() {
     ]);
   }, [nickname, showReportOptions, handleBlock, t]);
 
+  // Custom header
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <Pressable onPress={showOptionsMenu} style={{ padding: 8 }}>
-          <Feather name="more-vertical" size={22} color={theme.text} />
-        </Pressable>
+      headerTitle: () => (
+        <ChatHeader
+          nickname={nickname}
+          avatarUrl={avatarUrl ?? null}
+          onOptions={showOptionsMenu}
+        />
       ),
+      headerRight: () => null,
     });
-  }, [navigation, showOptionsMenu, theme.text]);
+  }, [navigation, nickname, avatarUrl, showOptionsMenu]);
 
   useEffect(() => {
     if (allMessages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [allMessages.length]);
 
+  const sendScale_style = useAnimatedStyle(() => ({
+    transform: [{ scale: sendScale.value }],
+  }));
+
   const handleSend = useCallback(async () => {
     if (!message.trim() || isSending) return;
-
     const content = message.trim();
     setMessage("");
     setShowQuickMessages(false);
     setIsSending(true);
     sendTypingIndicator(false);
+
+    sendScale.value = withSequence(
+      withSpring(0.85, { damping: 12, stiffness: 300 }),
+      withSpring(1, { damping: 12, stiffness: 300 }),
+    );
 
     try {
       const newMessage = await apiRequest<Message>("POST", "/api/messages", {
@@ -255,16 +356,14 @@ export default function ChatScreen() {
         senderId: user?.id,
         content,
       });
-
       setLocalMessages((prev) => {
         const exists = prev.some((m) => m.id === newMessage.id);
         if (exists) return prev;
         return [...prev, newMessage];
       });
-
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-    } catch (error) {
+    } catch {
       Alert.alert(t("common.error"), t("chat.failedSend"));
       setMessage(content);
     } finally {
@@ -276,23 +375,20 @@ export default function ChatScreen() {
     async (quickMessage: string) => {
       setShowQuickMessages(false);
       setIsSending(true);
-
       try {
         const newMessage = await apiRequest<Message>("POST", "/api/messages", {
           matchId,
           senderId: user?.id,
           content: quickMessage,
         });
-
         setLocalMessages((prev) => {
           const exists = prev.some((m) => m.id === newMessage.id);
           if (exists) return prev;
           return [...prev, newMessage];
         });
-
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-      } catch (error) {
+      } catch {
         Alert.alert(t("common.error"), t("chat.failedSend"));
       } finally {
         setIsSending(false);
@@ -309,6 +405,8 @@ export default function ChatScreen() {
     );
   }
 
+  const canSend = message.trim().length > 0 && !isSending;
+
   return (
     <ThemedView style={styles.container}>
       <KeyboardAvoidingView
@@ -318,69 +416,83 @@ export default function ChatScreen() {
       >
         <FlatList
           ref={flatListRef}
-          data={allMessages}
-          keyExtractor={(item) => item.id}
+          data={listItems}
+          keyExtractor={(item) => item.type === "date" ? item.id : item.message.id}
           contentContainerStyle={[
             styles.messagesList,
-            { paddingTop: headerHeight + Spacing.lg },
+            { paddingTop: Spacing.lg },
           ]}
-          renderItem={({ item }) => (
-            <MessageBubble
-              content={item.content}
-              isMine={item.senderId === user?.id}
-              timestamp={new Date(item.createdAt)}
-            />
-          )}
+          renderItem={({ item }) => {
+            if (item.type === "date") {
+              return <DateSeparator date={item.date} />;
+            }
+            return (
+              <MessageBubble
+                content={item.message.content}
+                isMine={item.message.senderId === user?.id}
+                timestamp={new Date(item.message.createdAt)}
+                isFirst={item.isFirst}
+                isLast={item.isLast}
+              />
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Feather
-                name="message-circle"
-                size={48}
-                color={theme.textSecondary}
-              />
-              <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
+              <View style={[styles.emptyAvatarRing, { borderColor: `${theme.secondary}60`, shadowColor: theme.secondary }]}>
+                <Image
+                  source={{ uri: avatarUrl || AVATAR_PLACEHOLDERS[0] }}
+                  style={styles.emptyAvatar}
+                  contentFit="cover"
+                />
+              </View>
+              <ThemedText style={[styles.emptyName, { color: theme.text }]}>{nickname}</ThemedText>
+              <ThemedText style={[styles.emptyHint, { color: theme.textSecondary }]}>
                 {t("chat.startConversation")}
               </ThemedText>
             </View>
           }
           ListFooterComponent={
             isTyping ? (
-              <View style={styles.typingIndicator}>
-                <ThemedText style={[styles.typingText, { color: theme.textSecondary }]}>
-                  {t("chat.isTyping", { name: nickname })}
-                </ThemedText>
+              <View style={styles.typingRow}>
+                <View style={[styles.typingBubble, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                  <AnimatedDot delay={0} />
+                  <AnimatedDot delay={150} />
+                  <AnimatedDot delay={300} />
+                </View>
               </View>
             ) : null
           }
           onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         />
 
-        <View
-          style={[
-            styles.inputContainer,
-            { paddingBottom: insets.bottom + Spacing.sm, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border },
-          ]}
-        >
-          {showQuickMessages && allMessages.length === 0 ? (
+        {/* Input area */}
+        <View style={[
+          styles.inputContainer,
+          {
+            paddingBottom: insets.bottom + Spacing.sm,
+            backgroundColor: theme.backgroundRoot,
+            borderTopColor: theme.border,
+          },
+        ]}>
+          {showQuickMessages && allMessages.length === 0 && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.quickMessagesScroll}
-              contentContainerStyle={styles.quickMessagesContent}
+              style={styles.quickScroll}
+              contentContainerStyle={styles.quickContent}
             >
-              {quickMessages.map((qm, index) => (
-                <QuickMessageChip
-                  key={index}
-                  message={qm}
-                  onPress={() => handleQuickMessage(qm)}
-                />
+              {quickMessages.map((qm, i) => (
+                <QuickMessageChip key={i} message={qm} onPress={() => handleQuickMessage(qm)} />
               ))}
             </ScrollView>
-          ) : null}
+          )}
 
-          <View style={styles.inputRow}>
+          <View style={[
+            styles.inputRow,
+            { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+          ]}>
             <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundDefault }]}
+              style={[styles.input, { color: theme.text }]}
               placeholder={t("chat.messagePlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={message}
@@ -389,29 +501,29 @@ export default function ChatScreen() {
               maxLength={500}
               onFocus={() => setShowQuickMessages(false)}
             />
-            <Pressable
-              onPress={handleSend}
-              disabled={!message.trim() || isSending}
-              style={({ pressed }: { pressed: boolean }) => [
-                styles.sendButton,
-                {
-                  backgroundColor: message.trim()
-                    ? theme.primary
-                    : theme.backgroundSecondary,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-            >
-              {isSending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Feather
-                  name="send"
-                  size={20}
-                  color={message.trim() ? "#FFFFFF" : theme.textSecondary}
-                />
-              )}
-            </Pressable>
+            <Animated.View style={sendScale_style}>
+              <Pressable
+                onPress={handleSend}
+                disabled={!canSend}
+                style={[
+                  styles.sendButton,
+                  {
+                    backgroundColor: canSend ? theme.primary : theme.backgroundSecondary,
+                    shadowColor: canSend ? theme.primary : "transparent",
+                  },
+                ]}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Feather
+                    name="send"
+                    size={18}
+                    color={canSend ? "#FFFFFF" : theme.textSecondary}
+                  />
+                )}
+              </Pressable>
+            </Animated.View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -420,16 +532,59 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: "center",
+  container: { flex: 1 },
+  centered: { justifyContent: "center", alignItems: "center" },
+  keyboardAvoid: { flex: 1 },
+
+  // Header
+  headerContainer: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  keyboardAvoid: {
+    justifyContent: "space-between",
+    paddingHorizontal: 0,
     flex: 1,
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  headerAvatarRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  headerOnlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+  },
+  headerNickname: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  headerStatus: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  headerOptions: {
+    padding: 6,
+  },
+
+  // Messages
   messagesList: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
@@ -437,52 +592,95 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingTop: 100,
+    paddingTop: 60,
     gap: Spacing.md,
   },
-  emptyText: {
-    fontSize: 16,
+  emptyAvatarRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
-  typingIndicator: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+  emptyAvatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
   },
-  typingText: {
-    fontSize: 14,
-    fontStyle: "italic",
+  emptyName: {
+    fontSize: 20,
+    fontWeight: "700",
   },
+  emptyHint: {
+    fontSize: 15,
+    textAlign: "center",
+    paddingHorizontal: Spacing["3xl"],
+  },
+
+  // Typing
+  typingRow: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  typingBubble: {
+    flexDirection: "row",
+    gap: 5,
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+  },
+  typingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+
+  // Input
   inputContainer: {
     borderTopWidth: 1,
     paddingTop: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-  },
-  quickMessagesScroll: {
-    marginBottom: Spacing.sm,
-  },
-  quickMessagesContent: {
+    paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
-    paddingRight: Spacing.lg,
+  },
+  quickScroll: {
+    marginBottom: Spacing.xs,
+  },
+  quickContent: {
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: Spacing.sm,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   input: {
     flex: 1,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    fontSize: 16,
+    fontSize: 15,
     maxHeight: 100,
+    paddingVertical: 4,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
 });
