@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   interpolate,
@@ -37,6 +38,7 @@ interface SwipeCardProps {
   profile: Profile;
   userGames: UserGame[];
   translateX: SharedValue<number>;
+  translateY?: SharedValue<number>;
   isTopCard?: boolean;
   isOnline?: boolean;
   isAvailableNow?: boolean;
@@ -54,6 +56,7 @@ export function SwipeCard({
   profile,
   userGames,
   translateX,
+  translateY,
   isTopCard = false,
   isOnline = false,
   isAvailableNow = false,
@@ -62,177 +65,219 @@ export function SwipeCard({
 }: SwipeCardProps) {
   const { theme } = useTheme();
 
-  const rotateStyle = useAnimatedStyle(() => {
-    const rotate = interpolate(
-      translateX.value,
-      [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-      [-15, 0, 15],
-    );
-    return {
-      transform: [{ translateX: translateX.value }, { rotate: `${rotate}deg` }],
-    };
-  });
-
   const likeOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, SCREEN_WIDTH / 4], [0, 1]),
+    opacity: interpolate(translateX.value, [0, SCREEN_WIDTH / 4], [0, 1], "clamp"),
   }));
 
   const nopeOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [-SCREEN_WIDTH / 4, 0], [1, 0]),
+    opacity: interpolate(translateX.value, [-SCREEN_WIDTH / 4, 0], [1, 0], "clamp"),
   }));
+
+  const superOpacity = useAnimatedStyle(() => {
+    const ty = translateY?.value ?? 0;
+    return {
+      opacity: interpolate(ty, [-30, -100], [0, 1], "clamp"),
+    };
+  });
 
   const avatarUrl =
     profile.avatarUrl ||
     AVATAR_PLACEHOLDERS[Math.floor(Math.random() * AVATAR_PLACEHOLDERS.length)];
 
+  const cardWidth = width ?? CARD_WIDTH;
+  const cardHeight = height ?? 540;
+
   return (
-    <Animated.View
+    <View
       style={[
         styles.card,
-        { backgroundColor: theme.backgroundDefault },
-        width ? { width } : undefined,
-        height ? { height } : undefined,
-        isTopCard ? rotateStyle : undefined,
+        { width: cardWidth, height: cardHeight },
       ]}
     >
-      <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: avatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-        />
-        <View style={styles.imageOverlay} />
+      {/* Full-bleed photo */}
+      <Image
+        source={{ uri: avatarUrl }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+
+      {/* Bottom gradient overlay */}
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.85)", "rgba(0,0,0,0.97)"]}
+        locations={[0.3, 0.55, 0.78, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* Status badges — top right */}
+      {(isOnline || isAvailableNow) && (
+        <View style={styles.statusContainer}>
+          {isAvailableNow && (
+            <View style={[styles.statusBadge, styles.availableBadge]}>
+              <Feather name="zap" size={11} color="#B857FF" />
+              <ThemedText style={[styles.statusText, { color: "#B857FF" }]}>Ready</ThemedText>
+            </View>
+          )}
+          {isOnline && (
+            <View style={[styles.statusBadge, styles.onlineBadge]}>
+              <View style={styles.onlineDot} />
+              <ThemedText style={[styles.statusText, { color: "#00FF88" }]}>Online</ThemedText>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* LIKE stamp */}
+      {isTopCard && (
         <Animated.View style={[styles.likeLabel, likeOpacity]}>
           <ThemedText style={styles.likeLabelText}>LIKE</ThemedText>
         </Animated.View>
+      )}
+
+      {/* NOPE stamp */}
+      {isTopCard && (
         <Animated.View style={[styles.nopeLabel, nopeOpacity]}>
           <ThemedText style={styles.nopeLabelText}>NOPE</ThemedText>
         </Animated.View>
-        {isOnline || isAvailableNow ? (
-          <View style={styles.statusContainer}>
-            {isAvailableNow ? (
-              <View style={[styles.statusBadge, styles.availableBadge]}>
-                <Feather name="zap" size={12} color="#FFFFFF" />
-                <ThemedText style={styles.statusText}>Ready to Play</ThemedText>
-              </View>
-            ) : null}
-            {isOnline ? (
-              <View style={[styles.statusBadge, styles.onlineBadge]}>
-                <View style={styles.onlineDot} />
-                <ThemedText style={styles.statusText}>Online</ThemedText>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+      )}
 
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.nameRow}>
-            <ThemedText type="h3" style={[styles.nickname, { color: theme.text }]}>
-              {profile.nickname}
-            </ThemedText>
-            {profile.age ? (
-              <ThemedText style={[styles.age, { color: theme.textSecondary }]}>{profile.age}</ThemedText>
-            ) : null}
+      {/* SUPER stamp */}
+      {isTopCard && (
+        <Animated.View style={[styles.superLabel, superOpacity]}>
+          <Feather name="star" size={18} color="#FFD700" />
+          <ThemedText style={styles.superLabelText}>SUPER</ThemedText>
+        </Animated.View>
+      )}
+
+      {/* Info panel — overlaid at bottom */}
+      <View style={styles.infoPanel}>
+        {/* Name + age */}
+        <View style={styles.nameRow}>
+          <ThemedText style={styles.nickname}>{profile.nickname}</ThemedText>
+          {profile.age ? (
+            <ThemedText style={styles.age}>{profile.age}</ThemedText>
+          ) : null}
+        </View>
+
+        {/* Region / mic / languages */}
+        <View style={styles.tagsRow}>
+          <View style={styles.tag}>
+            <Feather name="map-pin" size={12} color="rgba(255,255,255,0.7)" />
+            <ThemedText style={styles.tagText}>{profile.region.toUpperCase()}</ThemedText>
           </View>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Feather name="map-pin" size={14} color={theme.textSecondary} />
-              <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>{profile.region}</ThemedText>
+          {profile.micEnabled && (
+            <View style={[styles.tag, styles.tagGreen]}>
+              <Feather name="mic" size={12} color="#00FF88" />
+              <ThemedText style={[styles.tagText, { color: "#00FF88" }]}>Mic</ThemedText>
             </View>
-            {profile.micEnabled ? (
-              <View style={styles.infoItem}>
-                <Feather name="mic" size={14} color={theme.success} />
-                <ThemedText style={[styles.infoText, { color: theme.success }]}>
-                  Mic
-                </ThemedText>
-              </View>
-            ) : null}
-            {profile.languages && profile.languages.length > 0 ? (
-              <View style={styles.infoItem}>
-                <Feather name="globe" size={14} color={theme.textSecondary} />
-                <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>
-                  {profile.languages.slice(0, 2).join(", ")}
-                </ThemedText>
-              </View>
-            ) : null}
+          )}
+          {profile.languages && profile.languages.length > 0 && (
+            <View style={styles.tag}>
+              <Feather name="globe" size={12} color="rgba(255,255,255,0.7)" />
+              <ThemedText style={styles.tagText}>
+                {profile.languages.slice(0, 2).join(" · ")}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+
+        {/* Game badges */}
+        {userGames.length > 0 && (
+          <View style={styles.gamesRow}>
+            {userGames.slice(0, 3).map((game, index) => (
+              <GameBadge
+                key={index}
+                game={game.gameId}
+                rank={game.rank || undefined}
+                role={game.roles?.[0]}
+                size="small"
+              />
+            ))}
           </View>
-        </View>
+        )}
 
-        <View style={styles.gamesContainer}>
-          {userGames.slice(0, 3).map((game, index) => (
-            <GameBadge
-              key={index}
-              game={game.gameId}
-              rank={game.rank || undefined}
-              role={game.roles?.[0]}
-              size="small"
-            />
-          ))}
-        </View>
-
+        {/* Bio */}
         {profile.bio ? (
-          <ThemedText style={[styles.bio, { color: theme.textSecondary }]} numberOfLines={2}>
+          <ThemedText style={styles.bio} numberOfLines={2}>
             {profile.bio}
           </ThemedText>
         ) : null}
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
     borderRadius: BorderRadius["2xl"],
     overflow: "hidden",
-    backgroundColor: "#111726",
-    shadowColor: "#000000",
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 12,
-  },
-  imageContainer: {
-    width: "100%",
-    height: 320,
-    position: "relative",
     backgroundColor: "#0F1525",
+    shadowColor: "#000",
+    shadowOpacity: 0.5,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 16,
   },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
+  statusContainer: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    gap: 6,
+    alignItems: "flex-end",
   },
-  avatar: {
-    width: "100%",
-    height: "100%",
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    gap: 5,
+    backgroundColor: "rgba(10,14,26,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  onlineBadge: {
+    borderColor: "rgba(0,255,136,0.3)",
+  },
+  availableBadge: {
+    borderColor: "rgba(184,87,255,0.3)",
+  },
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#00FF88",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
   },
   likeLabel: {
     position: "absolute",
-    top: 36,
-    left: 18,
-    borderWidth: 2,
+    top: 44,
+    left: 20,
+    borderWidth: 2.5,
     borderColor: "#00FF88",
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
     paddingHorizontal: 14,
     paddingVertical: 6,
     transform: [{ rotate: "-12deg" }],
-    backgroundColor: "rgba(0,255,136,0.1)",
+    backgroundColor: "rgba(0,255,136,0.12)",
   },
   likeLabelText: {
     color: "#00FF88",
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
   nopeLabel: {
     position: "absolute",
-    top: 36,
-    right: 18,
-    borderWidth: 2,
+    top: 44,
+    right: 20,
+    borderWidth: 2.5,
     borderColor: "#FF3366",
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
     paddingHorizontal: 14,
     paddingVertical: 6,
     transform: [{ rotate: "12deg" }],
@@ -240,52 +285,39 @@ const styles = StyleSheet.create({
   },
   nopeLabelText: {
     color: "#FF3366",
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
-  statusContainer: {
+  superLabel: {
     position: "absolute",
-    top: 14,
-    right: 14,
-    gap: 8,
-    alignItems: "flex-end",
-  },
-  statusBadge: {
+    bottom: 180,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(26,31,46,0.75)",
+    gap: 8,
+    borderWidth: 2.5,
+    borderColor: "#FFD700",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,215,0,0.12)",
   },
-  onlineBadge: {
-    backgroundColor: "rgba(0, 255, 136, 0.12)",
+  superLabelText: {
+    color: "#FFD700",
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: 3,
   },
-  availableBadge: {
-    backgroundColor: "rgba(184, 87, 255, 0.18)",
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#00FF88",
-  },
-  statusText: {
-    fontSize: 12,
-    color: "#FFFFFF",
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  content: {
-    padding: Spacing["2xl"],
-    gap: Spacing.md,
-  },
-  header: {
-    gap: Spacing.xs,
+  infoPanel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing["2xl"],
+    paddingBottom: Spacing["2xl"],
+    paddingTop: Spacing.lg,
+    gap: Spacing.sm,
   },
   nameRow: {
     flexDirection: "row",
@@ -293,30 +325,47 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   nickname: {
-    letterSpacing: 0.4,
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
   age: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: "400",
+    color: "rgba(255,255,255,0.8)",
   },
-  infoRow: {
+  tagsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.lg,
+    flexWrap: "wrap",
+    gap: Spacing.xs,
   },
-  infoItem: {
+  tag: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  infoText: {
-    fontSize: 14,
+  tagGreen: {
+    backgroundColor: "rgba(0,255,136,0.1)",
   },
-  gamesContainer: {
+  tagText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.75)",
+    letterSpacing: 0.3,
+  },
+  gamesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   bio: {
-    fontSize: 14,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.6)",
+    lineHeight: 18,
   },
 });

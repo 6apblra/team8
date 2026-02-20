@@ -27,18 +27,17 @@ import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { ActionButton } from "@/components/ActionButton";
 import { SwipeCard } from "@/components/SwipeCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Spacing } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const CARD_MAX_WIDTH = 460;
-const CARD_HEIGHT = 540;
-const CARD_WIDTH = Math.min(SCREEN_WIDTH - Spacing["4xl"] * 2, CARD_MAX_WIDTH);
+const CARD_HEIGHT = 560;
+const CARD_WIDTH = Math.min(SCREEN_WIDTH - Spacing.lg * 2, CARD_MAX_WIDTH);
 
 interface FeedCandidate {
   id: string;
@@ -63,6 +62,70 @@ interface FeedCandidate {
   }[];
   isOnline?: boolean;
   isAvailableNow?: boolean;
+}
+
+function GlowButton({
+  icon,
+  color,
+  size = "large",
+  onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  color: string;
+  size?: "medium" | "large";
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const btnSize = size === "large" ? 68 : 56;
+  const iconSize = size === "large" ? 30 : 24;
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Animated.View
+        style={[
+          styles.glowButton,
+          {
+            width: btnSize,
+            height: btnSize,
+            borderRadius: btnSize / 2,
+            borderColor: color,
+            shadowColor: color,
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.glowButtonInner,
+            {
+              width: btnSize,
+              height: btnSize,
+              borderRadius: btnSize / 2,
+              backgroundColor: `${color}18`,
+            },
+          ]}
+        >
+          <Feather
+            name={icon}
+            size={iconSize}
+            color={color}
+            onPress={() => {
+              scale.value = withSpring(0.88, { damping: 12, stiffness: 220 });
+              setTimeout(() => {
+                scale.value = withSpring(1, { damping: 12, stiffness: 220 });
+              }, 100);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onPress();
+            }}
+          />
+        </Animated.View>
+      </Animated.View>
+    </Animated.View>
+  );
 }
 
 export default function DiscoverScreen() {
@@ -285,6 +348,22 @@ export default function DiscoverScreen() {
     ],
   }));
 
+  const nextCardScale = useAnimatedStyle(() => {
+    const scale = interpolate(
+      Math.abs(translateX.value) + Math.abs(translateY.value),
+      [0, 120],
+      [0.94, 1],
+      "clamp",
+    );
+    const opacity = interpolate(
+      Math.abs(translateX.value) + Math.abs(translateY.value),
+      [0, 120],
+      [0.5, 1],
+      "clamp",
+    );
+    return { transform: [{ scale }], opacity };
+  });
+
   const handleButtonSwipe = (direction: "left" | "right" | "up") => {
     if (!currentCandidate) return;
 
@@ -319,7 +398,9 @@ export default function DiscoverScreen() {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>{t("discover.findingTeammates")}</ThemedText>
+        <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>
+          {t("discover.findingTeammates")}
+        </ThemedText>
       </ThemedView>
     );
   }
@@ -327,50 +408,69 @@ export default function DiscoverScreen() {
   if (!currentCandidate) {
     return (
       <ThemedView
-        style={[
-          styles.container,
-          styles.centered,
-          { paddingTop: headerHeight },
-        ]}
+        style={[styles.container, styles.centered, { paddingTop: headerHeight }]}
       >
-        <Feather name="users" size={80} color={theme.textSecondary} />
+        <View style={[styles.emptyIconWrap, { borderColor: theme.border }]}>
+          <Feather name="users" size={52} color={theme.textSecondary} />
+        </View>
         <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
           {t("discover.noMoreProfiles")}
         </ThemedText>
         <ThemedText style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
           {t("discover.checkBackLater")}
         </ThemedText>
-        <ActionButton
+        <GlowButton
           icon="refresh-cw"
           color={theme.primary}
+          size="large"
           onPress={() => {
             setCurrentIndex(0);
             refetch();
           }}
-          size="large"
         />
       </ThemedView>
     );
   }
 
+  const superRemaining = swipeStatus?.superLikesRemaining ?? 1;
+  const swipeRemaining = swipeStatus?.remaining ?? "...";
+
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.content, { paddingTop: headerHeight + Spacing.md }]}>
-        <View style={styles.swipeCounter}>
-          <Feather name="heart" size={16} color={theme.primary} />
-          <ThemedText style={[styles.swipeCounterText, { color: theme.textSecondary }]}>
-            {t("discover.swipesLeft", { count: String(swipeStatus?.remaining ?? "...") })}
-          </ThemedText>
-          <Feather name="star" size={16} color="#FFD700" style={{ marginLeft: 12 }} />
-          <ThemedText style={[styles.swipeCounterText, { color: theme.textSecondary }]}>
-            {t("discover.superLikesLeft", { count: String(swipeStatus?.superLikesRemaining ?? "...") })}
-          </ThemedText>
+      <View style={[styles.content, { paddingTop: headerHeight + Spacing.sm }]}>
+
+        {/* Counters row */}
+        <View style={styles.countersRow}>
+          <View style={[styles.counterPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <Feather name="heart" size={13} color={theme.primary} />
+            <ThemedText style={[styles.counterText, { color: theme.text }]}>
+              {String(swipeRemaining)}
+            </ThemedText>
+          </View>
+          <View style={[
+            styles.counterPill,
+            {
+              backgroundColor: superRemaining > 0
+                ? "rgba(255,215,0,0.1)"
+                : theme.backgroundSecondary,
+              borderColor: superRemaining > 0 ? "rgba(255,215,0,0.35)" : theme.border,
+            },
+          ]}>
+            <Feather name="star" size={13} color={superRemaining > 0 ? "#FFD700" : theme.textSecondary} />
+            <ThemedText style={[
+              styles.counterText,
+              { color: superRemaining > 0 ? "#FFD700" : theme.textSecondary },
+            ]}>
+              {String(superRemaining)}
+            </ThemedText>
+          </View>
         </View>
 
+        {/* Card stack */}
         <View style={styles.cardContainer}>
           <View style={styles.cardStack}>
             {nextCandidate ? (
-              <View style={styles.nextCard}>
+              <Animated.View style={[styles.nextCard, nextCardScale]}>
                 <SwipeCard
                   width={CARD_WIDTH}
                   height={CARD_HEIGHT}
@@ -390,7 +490,7 @@ export default function DiscoverScreen() {
                   isOnline={nextCandidate.isOnline}
                   isAvailableNow={nextCandidate.isAvailableNow}
                 />
-              </View>
+              </Animated.View>
             ) : null}
 
             <GestureDetector gesture={panGesture}>
@@ -410,6 +510,7 @@ export default function DiscoverScreen() {
                   }}
                   userGames={currentCandidate.userGames}
                   translateX={translateX}
+                  translateY={translateY}
                   isTopCard={true}
                   isOnline={currentCandidate.isOnline}
                   isAvailableNow={currentCandidate.isAvailableNow}
@@ -419,26 +520,25 @@ export default function DiscoverScreen() {
           </View>
         </View>
 
-        <View
-          style={[styles.actions, { paddingBottom: tabBarHeight + Spacing.md }]}
-        >
-          <ActionButton
+        {/* Action buttons */}
+        <View style={[styles.actions, { paddingBottom: tabBarHeight + Spacing.md }]}>
+          <GlowButton
             icon="x"
-            color={theme.danger}
+            color="#FF3366"
+            size="large"
             onPress={() => handleButtonSwipe("left")}
-            size="large"
           />
-          <ActionButton
-            icon="arrow-up"
-            color={theme.secondary}
-            onPress={() => handleButtonSwipe("up")}
+          <GlowButton
+            icon="star"
+            color="#FFD700"
             size="medium"
+            onPress={() => handleButtonSwipe("up")}
           />
-          <ActionButton
+          <GlowButton
             icon="heart"
-            color={theme.success}
-            onPress={() => handleButtonSwipe("right")}
+            color="#00FF88"
             size="large"
+            onPress={() => handleButtonSwipe("right")}
           />
         </View>
       </View>
@@ -458,44 +558,62 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
   },
+  emptyIconWrap: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
   emptyTitle: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing.xs,
   },
   emptySubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     marginBottom: Spacing.lg,
+    textAlign: "center",
+    paddingHorizontal: Spacing["3xl"],
   },
   content: {
     flex: 1,
   },
-  swipeCounter: {
+  countersRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  counterPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
-  swipeCounterText: {
+  counterText: {
     fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   cardContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Spacing["4xl"],
-    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   cardStack: {
     width: "100%",
     maxWidth: CARD_MAX_WIDTH + Spacing.md,
-    height: CARD_HEIGHT + 40,
+    height: CARD_HEIGHT + 20,
     alignItems: "center",
     justifyContent: "center",
   },
   nextCard: {
     position: "absolute",
-    transform: [{ scale: 0.94 }],
-    opacity: 0.55,
   },
   currentCard: {
     position: "absolute",
@@ -504,7 +622,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: Spacing.xl,
-    paddingTop: Spacing["3xl"],
+    gap: Spacing["2xl"],
+    paddingTop: Spacing.xl,
+  },
+  glowButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  glowButtonInner: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
