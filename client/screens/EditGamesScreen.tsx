@@ -7,6 +7,15 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  interpolateColor,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -23,6 +32,8 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
 import { GAMES, RANKS, ROLES, PLAYSTYLES, PLATFORMS } from "@/lib/game-data";
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface UserGame {
   id?: string;
   userId?: string;
@@ -33,6 +44,268 @@ interface UserGame {
   platform?: string | null;
   isPrimary?: boolean;
 }
+
+const GAME_ICONS: Record<string, string> = {
+  valorant: "crosshair",
+  cs2: "target",
+  dota2: "shield",
+  fortnite: "box",
+  lol: "award",
+  wot: "menu",
+  apex: "triangle",
+};
+
+// ─── Animated game card ───────────────────────────────────────────────────────
+
+function GameCard({
+  game,
+  isSelected,
+  onPress,
+  gameColor,
+  theme,
+}: {
+  game: { id: string; name: string };
+  isSelected: boolean;
+  onPress: () => void;
+  gameColor: string;
+  theme: any;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.91, { damping: 15, stiffness: 300 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }); }}
+      style={[
+        animStyle,
+        gcStyles.card,
+        {
+          backgroundColor: isSelected ? gameColor : theme.backgroundSecondary,
+          borderColor: gameColor,
+          shadowColor: isSelected ? gameColor : "transparent",
+          shadowOpacity: isSelected ? 0.55 : 0,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: isSelected ? 8 : 0,
+        },
+      ]}
+    >
+      <Feather
+        name={(GAME_ICONS[game.id] || "award") as any}
+        size={32}
+        color={isSelected ? "#FFFFFF" : gameColor}
+      />
+      <ThemedText style={[gcStyles.name, { color: isSelected ? "#FFFFFF" : theme.text }]}>
+        {game.name}
+      </ThemedText>
+      {isSelected && (
+        <View style={gcStyles.check}>
+          <Feather name="check" size={12} color="#FFFFFF" />
+        </View>
+      )}
+    </AnimatedPressable>
+  );
+}
+
+const gcStyles = StyleSheet.create({
+  card: {
+    width: "46%",
+    aspectRatio: 1.1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    position: "relative",
+  },
+  name: { fontSize: 13, fontWeight: "700" },
+  check: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+// ─── Expandable game detail card ──────────────────────────────────────────────
+
+function GameDetailCard({
+  gameId,
+  gameColor,
+  gameName,
+  gameIcon,
+  rank,
+  roles,
+  isExpanded,
+  onToggle,
+  ranks,
+  rolesList,
+  onRankChange,
+  onRoleToggle,
+  theme,
+  t,
+}: {
+  gameId: string;
+  gameColor: string;
+  gameName: string;
+  gameIcon: string;
+  rank?: string;
+  roles: string[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  ranks: string[];
+  rolesList: string[];
+  onRankChange: (rank: string) => void;
+  onRoleToggle: (role: string) => void;
+  theme: any;
+  t: any;
+}) {
+  const chevronRotate = useSharedValue(isExpanded ? 1 : 0);
+  const contentHeight = useSharedValue(isExpanded ? 1 : 0);
+
+  useEffect(() => {
+    chevronRotate.value = withTiming(isExpanded ? 1 : 0, { duration: 250 });
+    contentHeight.value = withTiming(isExpanded ? 1 : 0, { duration: 250 });
+  }, [isExpanded]);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(chevronRotate.value, [0, 1], [0, 180])}deg` }],
+  }));
+
+  const scale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View
+      style={[
+        pressStyle,
+        gdStyles.card,
+        {
+          backgroundColor: theme.backgroundDefault,
+          borderColor: isExpanded ? gameColor : theme.border,
+          shadowColor: isExpanded ? gameColor : "transparent",
+          shadowOpacity: isExpanded ? 0.2 : 0,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: isExpanded ? 4 : 0,
+        },
+      ]}
+    >
+      <AnimatedPressable
+        onPress={onToggle}
+        onPressIn={() => { scale.value = withSpring(0.98, { damping: 15 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+        style={[gdStyles.header, { borderLeftColor: gameColor }]}
+      >
+        <View style={[gdStyles.iconBg, { backgroundColor: `${gameColor}20` }]}>
+          <Feather name={gameIcon as any} size={20} color={gameColor} />
+        </View>
+        <ThemedText style={[gdStyles.name, { color: theme.text }]}>{gameName}</ThemedText>
+        <View style={gdStyles.meta}>
+          {rank && (
+            <View style={[gdStyles.rankBadge, { backgroundColor: `${gameColor}20` }]}>
+              <ThemedText style={{ fontSize: 11, fontWeight: "700", color: gameColor }}>
+                {rank}
+              </ThemedText>
+            </View>
+          )}
+          <Animated.View style={chevronStyle}>
+            <Feather name="chevron-down" size={20} color={theme.textSecondary} />
+          </Animated.View>
+        </View>
+      </AnimatedPressable>
+
+      {isExpanded && (
+        <View style={gdStyles.content}>
+          {ranks.length > 0 && (
+            <View style={gdStyles.group}>
+              <ThemedText style={[gdStyles.label, { color: theme.textSecondary }]}>
+                {t("editGames.rank")}
+              </ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: Spacing.sm, paddingRight: Spacing.md }}
+              >
+                {ranks.map((r) => (
+                  <SelectableChip
+                    key={r}
+                    label={r}
+                    selected={rank === r}
+                    onPress={() => onRankChange(r)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          {rolesList.length > 0 && (
+            <View style={gdStyles.group}>
+              <ThemedText style={[gdStyles.label, { color: theme.textSecondary }]}>
+                {t("editGames.rolesMultiple")}
+              </ThemedText>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+                {rolesList.map((role) => (
+                  <SelectableChip
+                    key={role}
+                    label={role}
+                    selected={roles.includes(role)}
+                    onPress={() => onRoleToggle(role)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+const gdStyles = StyleSheet.create({
+  card: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    borderLeftWidth: 3,
+  },
+  iconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  name: { flex: 1, fontSize: 16, fontWeight: "600" },
+  meta: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  rankBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  content: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: Spacing.lg },
+  group: { gap: Spacing.sm },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+});
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function EditGamesScreen() {
   const insets = useSafeAreaInsets();
@@ -59,7 +332,6 @@ export default function EditGamesScreen() {
     if (currentGames && currentGames.length > 0) {
       const gameIds = currentGames.map((g) => g.gameId);
       setSelectedGames(gameIds);
-
       const ranks: Record<string, string> = {};
       const roles: Record<string, string[]> = {};
       currentGames.forEach((g) => {
@@ -80,25 +352,18 @@ export default function EditGamesScreen() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/user-games"] });
-      if (user?.id) {
-        queryClient.invalidateQueries({
-          queryKey: ["/api/user-games", user.id],
-        });
-      }
+      if (user?.id) queryClient.invalidateQueries({ queryKey: ["/api/user-games", user.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       navigation.goBack();
     },
-    onError: (error) => {
-      console.error("Update games error:", error);
+    onError: () => {
       Alert.alert(t("common.error"), t("editGames.failedUpdate"));
     },
   });
 
   const toggleGame = (gameId: string) => {
     setSelectedGames((prev) =>
-      prev.includes(gameId)
-        ? prev.filter((g) => g !== gameId)
-        : [...prev, gameId],
+      prev.includes(gameId) ? prev.filter((g) => g !== gameId) : [...prev, gameId],
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -106,10 +371,12 @@ export default function EditGamesScreen() {
   const toggleRole = (gameId: string, role: string) => {
     setGameRoles((prev) => {
       const current = prev[gameId] || [];
-      const updated = current.includes(role)
-        ? current.filter((r) => r !== role)
-        : [...current, role];
-      return { ...prev, [gameId]: updated };
+      return {
+        ...prev,
+        [gameId]: current.includes(role)
+          ? current.filter((r) => r !== role)
+          : [...current, role],
+      };
     });
   };
 
@@ -118,7 +385,6 @@ export default function EditGamesScreen() {
       Alert.alert(t("common.error"), t("editGames.selectAtLeastOne"));
       return;
     }
-
     const gamesData = selectedGames.map((gameId, index) => ({
       gameId,
       rank: gameRanks[gameId] || null,
@@ -127,34 +393,12 @@ export default function EditGamesScreen() {
       platform,
       isPrimary: index === 0,
     }));
-
     updateMutation.mutate(gamesData);
-  };
-
-  const getGameIcon = (gameId: string) => {
-    switch (gameId) {
-      case "valorant":
-        return "crosshair";
-      case "cs2":
-        return "target";
-      case "dota2":
-        return "shield";
-      case "fortnite":
-        return "box";
-      case "lol":
-        return "award";
-      case "wot":
-        return "menu";
-      case "apex":
-        return "triangle";
-      default:
-        return "award";
-    }
   };
 
   if (isLoading) {
     return (
-      <ThemedView style={[styles.container, styles.centered]}>
+      <ThemedView style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator size="large" color={theme.primary} />
       </ThemedView>
     );
@@ -167,155 +411,80 @@ export default function EditGamesScreen() {
           styles.content,
           {
             paddingTop: headerHeight + Spacing.lg,
-            paddingBottom: insets.bottom + Spacing.xl + 80,
+            paddingBottom: insets.bottom + 100,
           },
         ]}
       >
-        <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>{t("editGames.selectYourGames")}</ThemedText>
-        <ThemedText style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+        {/* Section header */}
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionDot, { backgroundColor: theme.primary }]} />
+          <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>
+            {t("editGames.selectYourGames")}
+          </ThemedText>
+        </View>
+        <ThemedText style={[styles.sectionSub, { color: theme.textSecondary }]}>
           {t("editGames.selectGamesSubtitle")}
         </ThemedText>
 
         <View style={styles.gamesGrid}>
-          {GAMES.map((game) => {
-            const isSelected = selectedGames.includes(game.id);
-            const gameColor = GameColors[game.id] || theme.primary;
-            return (
-              <Pressable
-                key={game.id}
-                onPress={() => toggleGame(game.id)}
-                style={[
-                  styles.gameCard,
-                  {
-                    backgroundColor: isSelected
-                      ? gameColor
-                      : theme.backgroundSecondary,
-                    borderColor: gameColor,
-                  },
-                ]}
-              >
-                <Feather
-                  name={getGameIcon(game.id) as any}
-                  size={32}
-                  color={isSelected ? "#FFFFFF" : gameColor}
-                />
-                <ThemedText
-                  style={[
-                    styles.gameCardText,
-                    { color: isSelected ? "#FFFFFF" : theme.text },
-                  ]}
-                >
-                  {game.name}
-                </ThemedText>
-                {isSelected && (
-                  <View style={styles.checkMark}>
-                    <Feather name="check" size={16} color="#FFFFFF" />
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
+          {GAMES.map((game) => (
+            <GameCard
+              key={game.id}
+              game={game}
+              isSelected={selectedGames.includes(game.id)}
+              onPress={() => toggleGame(game.id)}
+              gameColor={GameColors[game.id] || theme.primary}
+              theme={theme}
+            />
+          ))}
         </View>
 
         {selectedGames.length > 0 && (
           <>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.divider, { backgroundColor: `${theme.border}60` }]} />
 
-            <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>{t("editGames.gameDetails")}</ThemedText>
-            <ThemedText style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionDot, { backgroundColor: theme.secondary }]} />
+              <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>
+                {t("editGames.gameDetails")}
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.sectionSub, { color: theme.textSecondary }]}>
               {t("editGames.gameDetailsSubtitle")}
             </ThemedText>
 
             {selectedGames.map((gameId) => {
               const game = GAMES.find((g) => g.id === gameId);
               const gameColor = GameColors[gameId] || theme.primary;
-              const isExpanded = expandedGame === gameId;
-              const ranks = RANKS[gameId as keyof typeof RANKS] || [];
-              const roles = ROLES[gameId as keyof typeof ROLES] || [];
-
               return (
-                <View key={gameId} style={[styles.gameDetailCard, { backgroundColor: theme.backgroundDefault }]}>
-                  <Pressable
-                    onPress={() => setExpandedGame(isExpanded ? null : gameId)}
-                    style={[
-                      styles.gameDetailHeader,
-                      { borderLeftColor: gameColor },
-                    ]}
-                  >
-                    <Feather
-                      name={getGameIcon(gameId) as any}
-                      size={24}
-                      color={gameColor}
-                    />
-                    <ThemedText style={[styles.gameDetailName, { color: theme.text }]}>
-                      {game?.name}
-                    </ThemedText>
-                    <View style={styles.gameDetailMeta}>
-                      {gameRanks[gameId] && (
-                        <ThemedText style={[styles.rankBadge, { color: theme.textSecondary, backgroundColor: theme.backgroundTertiary }]}>
-                          {gameRanks[gameId]}
-                        </ThemedText>
-                      )}
-                      <Feather
-                        name={isExpanded ? "chevron-up" : "chevron-down"}
-                        size={20}
-                        color={theme.textSecondary}
-                      />
-                    </View>
-                  </Pressable>
-
-                  {isExpanded && (
-                    <View style={styles.gameDetailContent}>
-                      <View style={styles.formGroup}>
-                        <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.rank")}</ThemedText>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.horizontalChips}
-                        >
-                          {ranks.map((rank) => (
-                            <SelectableChip
-                              key={rank}
-                              label={rank}
-                              selected={gameRanks[gameId] === rank}
-                              onPress={() =>
-                                setGameRanks((prev) => ({
-                                  ...prev,
-                                  [gameId]: rank,
-                                }))
-                              }
-                            />
-                          ))}
-                        </ScrollView>
-                      </View>
-
-                      <View style={styles.formGroup}>
-                        <ThemedText style={[styles.label, { color: theme.text }]}>
-                          {t("editGames.rolesMultiple")}
-                        </ThemedText>
-                        <View style={styles.chipGrid}>
-                          {roles.map((role) => (
-                            <SelectableChip
-                              key={role}
-                              label={role}
-                              selected={(gameRoles[gameId] || []).includes(
-                                role,
-                              )}
-                              onPress={() => toggleRole(gameId, role)}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                  )}
-                </View>
+                <GameDetailCard
+                  key={gameId}
+                  gameId={gameId}
+                  gameColor={gameColor}
+                  gameName={game?.name || gameId}
+                  gameIcon={GAME_ICONS[gameId] || "award"}
+                  rank={gameRanks[gameId]}
+                  roles={gameRoles[gameId] || []}
+                  isExpanded={expandedGame === gameId}
+                  onToggle={() => setExpandedGame(expandedGame === gameId ? null : gameId)}
+                  ranks={RANKS[gameId as keyof typeof RANKS] || []}
+                  rolesList={ROLES[gameId as keyof typeof ROLES] || []}
+                  onRankChange={(rank) =>
+                    setGameRanks((prev) => ({ ...prev, [gameId]: rank }))
+                  }
+                  onRoleToggle={(role) => toggleRole(gameId, role)}
+                  theme={theme}
+                  t={t}
+                />
               );
             })}
 
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.divider, { backgroundColor: `${theme.border}60` }]} />
 
-            <View style={styles.formGroup}>
-              <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.playstyle")}</ThemedText>
+            <View style={styles.field}>
+              <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
+                {t("editGames.playstyle")}
+              </ThemedText>
               <View style={styles.chipGrid}>
                 {PLAYSTYLES.map((ps) => (
                   <SelectableChip
@@ -329,8 +498,10 @@ export default function EditGamesScreen() {
               </View>
             </View>
 
-            <View style={styles.formGroup}>
-              <ThemedText style={[styles.label, { color: theme.text }]}>{t("editGames.platform")}</ThemedText>
+            <View style={styles.field}>
+              <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
+                {t("editGames.platform")}
+              </ThemedText>
               <View style={styles.chipGrid}>
                 {PLATFORMS.map((p) => (
                   <SelectableChip
@@ -346,34 +517,37 @@ export default function EditGamesScreen() {
         )}
       </ScrollView>
 
+      {/* Footer */}
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + Spacing.sm,
+            borderTopColor: `${theme.border}50`,
+            backgroundColor: theme.backgroundRoot,
+          },
+        ]}
       >
-        <Pressable
-          onPress={() => {
-            handleSave();
-          }}
-          style={({ pressed }) => [
-            styles.saveButton,
-            {
-              backgroundColor: theme.primary,
-              opacity: updateMutation.isPending ? 0.5 : pressed ? 0.8 : 1,
-              height: 52,
-              borderRadius: 26,
-              alignItems: "center",
-              justifyContent: "center",
-            },
-          ]}
-        >
-          {updateMutation.isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <ThemedText
-              style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 16 }}
-            >
-              {t("common.save")}
-            </ThemedText>
-          )}
+        <Pressable onPress={handleSave} disabled={updateMutation.isPending} style={styles.saveBtn}>
+          <LinearGradient
+            colors={
+              updateMutation.isPending
+                ? [`${theme.primary}50`, `${theme.primary}35`]
+                : [theme.primary, `${theme.primary}BB`]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.saveGradient}
+          >
+            {updateMutation.isPending ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="check" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.saveBtnText}>{t("common.save")}</ThemedText>
+              </>
+            )}
+          </LinearGradient>
         </Pressable>
       </View>
     </ThemedView>
@@ -381,118 +555,55 @@ export default function EditGamesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  container: { flex: 1 },
   content: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     gap: Spacing.lg,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    marginTop: -Spacing.sm,
+  sectionDot: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
   },
+  sectionTitle: { fontSize: 20, fontWeight: "700" },
+  sectionSub: { fontSize: 14, marginTop: -Spacing.sm },
   gamesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.md,
-  },
-  gameCard: {
-    width: "47%",
-    aspectRatio: 1.3,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 2,
-    padding: Spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    position: "relative",
-  },
-  gameCardText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  checkMark: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    alignItems: "center",
     justifyContent: "center",
   },
-  divider: {
-    height: 1,
-    marginVertical: Spacing.md,
-  },
-  gameDetailCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-  },
-  gameDetailHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    borderLeftWidth: 4,
-  },
-  gameDetailName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  gameDetailMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  rankBadge: {
-    fontSize: 12,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-  },
-  gameDetailContent: {
-    padding: Spacing.lg,
-    paddingTop: 0,
-    gap: Spacing.lg,
-  },
-  formGroup: {
-    gap: Spacing.sm,
-  },
+  divider: { height: 1 },
+  field: { gap: Spacing.sm },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
-  chipGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  horizontalChips: {
-    gap: Spacing.sm,
-    paddingRight: Spacing.lg,
-  },
+  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: Spacing.lg,
-    borderTopWidth: 1,
-    zIndex: 9999,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  saveButton: {
-    width: "100%",
+  saveBtn: { width: "100%" },
+  saveGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    height: 52,
+    borderRadius: BorderRadius.full,
   },
+  saveBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
 });

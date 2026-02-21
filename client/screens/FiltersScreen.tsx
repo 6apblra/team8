@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Pressable, ScrollView } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolateColor,
+  interpolate,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -7,7 +15,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { Button } from "@/components/Button";
 import { SelectableChip } from "@/components/SelectableChip";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -25,6 +32,213 @@ export interface SavedFilters {
   availableNowOnly: boolean;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// ─── Game pill chip ───────────────────────────────────────────────────────────
+
+const GAME_ICONS: Record<string, string> = {
+  valorant: "crosshair",
+  cs2: "target",
+  dota2: "shield",
+  fortnite: "box",
+  lol: "award",
+  wot: "menu",
+  apex: "triangle",
+};
+
+function GamePill({
+  game,
+  isSelected,
+  onPress,
+  gameColor,
+}: {
+  game: { id: string; name: string };
+  isSelected: boolean;
+  onPress: () => void;
+  gameColor: string;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.93, { damping: 15 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+      style={[
+        animStyle,
+        gpStyles.pill,
+        {
+          backgroundColor: isSelected ? gameColor : "transparent",
+          borderColor: gameColor,
+          shadowColor: isSelected ? gameColor : "transparent",
+          shadowOpacity: isSelected ? 0.4 : 0,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: isSelected ? 4 : 0,
+        },
+      ]}
+    >
+      <Feather
+        name={(GAME_ICONS[game.id] || "award") as any}
+        size={16}
+        color={isSelected ? "#FFFFFF" : gameColor}
+      />
+      <ThemedText
+        style={[gpStyles.label, { color: isSelected ? "#FFFFFF" : gameColor, fontWeight: isSelected ? "700" : "500" }]}
+      >
+        {game.name}
+      </ThemedText>
+    </AnimatedPressable>
+  );
+}
+
+const gpStyles = StyleSheet.create({
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+  },
+  label: { fontSize: 13 },
+});
+
+// ─── Animated toggle card ─────────────────────────────────────────────────────
+
+function ToggleCard({
+  icon,
+  title,
+  subtitle,
+  value,
+  onToggle,
+  activeColor,
+  theme,
+}: {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  value: boolean;
+  onToggle: () => void;
+  activeColor: string;
+  theme: any;
+}) {
+  const knob = useSharedValue(value ? 20 : 0);
+  const cardBg = useSharedValue(value ? 1 : 0);
+
+  const knobStyle = useAnimatedStyle(() => ({ transform: [{ translateX: knob.value }] }));
+  const cardStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(cardBg.value, [0, 1], [theme.border, activeColor]),
+    shadowOpacity: interpolate(cardBg.value, [0, 1], [0, 0.15]),
+    shadowRadius: interpolate(cardBg.value, [0, 1], [0, 8]),
+    shadowColor: activeColor,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: interpolate(cardBg.value, [0, 1], [0, 3]),
+  }));
+
+  const handleToggle = () => {
+    const newVal = !value;
+    knob.value = withSpring(newVal ? 20 : 0, { damping: 15, stiffness: 250 });
+    cardBg.value = withSpring(newVal ? 1 : 0);
+    onToggle();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        tcStyles.card,
+        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+        cardStyle,
+      ]}
+    >
+      <Pressable onPress={handleToggle} style={tcStyles.inner}>
+        <View style={[tcStyles.iconBg, { backgroundColor: value ? `${activeColor}20` : `${theme.primary}12` }]}>
+          <Feather name={icon as any} size={18} color={value ? activeColor : theme.textSecondary} />
+        </View>
+        <View style={tcStyles.labelBlock}>
+          <ThemedText style={[tcStyles.title, { color: theme.text }]}>{title}</ThemedText>
+          {subtitle && (
+            <ThemedText style={[tcStyles.subtitle, { color: theme.textSecondary }]}>
+              {subtitle}
+            </ThemedText>
+          )}
+        </View>
+        <View
+          style={[
+            tcStyles.track,
+            { backgroundColor: value ? activeColor : theme.backgroundTertiary, borderColor: value ? activeColor : theme.border },
+          ]}
+        >
+          <Animated.View style={[tcStyles.knob, knobStyle]} />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const tcStyles = StyleSheet.create({
+  card: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  inner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  iconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  labelBlock: { flex: 1, gap: 2 },
+  title: { fontSize: 15, fontWeight: "600" },
+  subtitle: { fontSize: 12 },
+  track: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    padding: 2,
+    borderWidth: 1,
+    justifyContent: "center",
+  },
+  knob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+  },
+});
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+function SectionHeader({ label, theme }: { label: string; theme: any }) {
+  return (
+    <View style={shStyles.row}>
+      <View style={[shStyles.bar, { backgroundColor: theme.primary }]} />
+      <ThemedText style={[shStyles.text, { color: theme.text }]}>{label}</ThemedText>
+    </View>
+  );
+}
+
+const shStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  bar: { width: 3, height: 18, borderRadius: 2 },
+  text: { fontSize: 18, fontWeight: "700" },
+});
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
 export default function FiltersScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -38,64 +252,44 @@ export default function FiltersScreen() {
   const [micRequired, setMicRequired] = useState(false);
   const [selectedPlaystyles, setSelectedPlaystyles] = useState<string[]>([]);
   const [availableNowOnly, setAvailableNowOnly] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadFilters = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(FILTERS_KEY);
-        if (stored) {
-          const filters: SavedFilters = JSON.parse(stored);
-          setSelectedGames(filters.games || []);
-          setSelectedRegions(filters.regions || []);
-          setSelectedLanguages(filters.languages || []);
-          setMicRequired(filters.micRequired || false);
-          setSelectedPlaystyles(filters.playstyles || []);
-          setAvailableNowOnly(filters.availableNowOnly || false);
-        }
-      } catch (error) {
-        console.error("Failed to load filters:", error);
-      } finally {
-        setIsLoaded(true);
+    AsyncStorage.getItem(FILTERS_KEY).then((stored) => {
+      if (stored) {
+        const f: SavedFilters = JSON.parse(stored);
+        setSelectedGames(f.games || []);
+        setSelectedRegions(f.regions || []);
+        setSelectedLanguages(f.languages || []);
+        setMicRequired(f.micRequired || false);
+        setSelectedPlaystyles(f.playstyles || []);
+        setAvailableNowOnly(f.availableNowOnly || false);
       }
-    };
-    loadFilters();
+    });
   }, []);
 
-  const toggleGame = (id: string) => {
-    setSelectedGames((prev) =>
-      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id],
-    );
-  };
+  const toggle = <T,>(setter: React.Dispatch<React.SetStateAction<T[]>>, id: T) =>
+    setter((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const toggleRegion = (id: string) => {
-    setSelectedRegions((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id],
-    );
-  };
-
-  const toggleLanguage = (id: string) => {
-    setSelectedLanguages((prev) =>
-      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
-    );
-  };
-
-  const togglePlaystyle = (id: string) => {
-    setSelectedPlaystyles((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    );
-  };
+  const hasFilters =
+    selectedGames.length > 0 ||
+    selectedRegions.length > 0 ||
+    availableNowOnly ||
+    selectedLanguages.length > 0 ||
+    micRequired ||
+    selectedPlaystyles.length > 0;
 
   const handleApply = async () => {
-    const filters = {
-      games: selectedGames,
-      regions: selectedRegions,
-      languages: selectedLanguages,
-      micRequired,
-      playstyles: selectedPlaystyles,
-      availableNowOnly,
-    };
-    await AsyncStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+    await AsyncStorage.setItem(
+      FILTERS_KEY,
+      JSON.stringify({
+        games: selectedGames,
+        regions: selectedRegions,
+        languages: selectedLanguages,
+        micRequired,
+        playstyles: selectedPlaystyles,
+        availableNowOnly,
+      }),
+    );
     navigation.goBack();
   };
 
@@ -108,281 +302,149 @@ export default function FiltersScreen() {
     setAvailableNowOnly(false);
   };
 
-  const hasFilters =
-    selectedGames.length > 0 ||
-    selectedRegions.length > 0 ||
-    availableNowOnly ||
-    selectedLanguages.length > 0 ||
-    micRequired ||
-    selectedPlaystyles.length > 0;
-
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          {
-            paddingTop: headerHeight + Spacing.lg,
-            paddingBottom: insets.bottom + 100,
-          },
+          { paddingTop: headerHeight + Spacing.lg, paddingBottom: insets.bottom + 100 },
         ]}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        showsVerticalScrollIndicator={false}
       >
+        {/* Games */}
         <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("filters.games")}
-          </ThemedText>
-          <View style={styles.gamesGrid}>
-            {GAMES.map((game) => {
-              const isSelected = selectedGames.includes(game.id);
-              const gameColor = GameColors[game.id] || theme.primary;
-              return (
-                <Pressable
-                  key={game.id}
-                  onPress={() => toggleGame(game.id)}
-                  style={[
-                    styles.gameCard,
-                    {
-                      backgroundColor: isSelected
-                        ? gameColor
-                        : theme.backgroundSecondary,
-                      borderColor: gameColor,
-                    },
-                  ]}
-                >
-                  <Feather
-                    name={
-                      game.id === "valorant"
-                        ? "crosshair"
-                        : game.id === "cs2"
-                          ? "target"
-                          : game.id === "dota2"
-                            ? "shield"
-                            : game.id === "fortnite"
-                              ? "box"
-                              : "award"
-                    }
-                    size={24}
-                    color={isSelected ? "#FFFFFF" : gameColor}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.gameCardText,
-                      { color: isSelected ? "#FFFFFF" : theme.text },
-                    ]}
-                  >
-                    {game.name}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("filters.region")}
-          </ThemedText>
-          <View style={styles.chipGrid}>
-            {REGIONS.map((region) => (
-              <SelectableChip
-                key={region.id}
-                label={t(`gameData.regions.${region.id}`)}
-                selected={selectedRegions.includes(region.id)}
-                onPress={() => toggleRegion(region.id)}
+          <SectionHeader label={t("filters.games")} theme={theme} />
+          <View style={styles.pillsRow}>
+            {GAMES.map((game) => (
+              <GamePill
+                key={game.id}
+                game={game}
+                isSelected={selectedGames.includes(game.id)}
+                onPress={() => toggle(setSelectedGames, game.id)}
+                gameColor={GameColors[game.id] || theme.primary}
               />
             ))}
           </View>
         </View>
 
+        {/* Region */}
         <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("filters.languages")}
-          </ThemedText>
+          <SectionHeader label={t("filters.region")} theme={theme} />
+          <View style={styles.chipGrid}>
+            {REGIONS.map((r) => (
+              <SelectableChip
+                key={r.id}
+                label={t(`gameData.regions.${r.id}`)}
+                selected={selectedRegions.includes(r.id)}
+                onPress={() => toggle(setSelectedRegions, r.id)}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Languages */}
+        <View style={styles.section}>
+          <SectionHeader label={t("filters.languages")} theme={theme} />
           <View style={styles.chipGrid}>
             {LANGUAGES.slice(0, 6).map((lang) => (
               <SelectableChip
                 key={lang.id}
                 label={t(`gameData.languages.${lang.id}`)}
                 selected={selectedLanguages.includes(lang.id)}
-                onPress={() => toggleLanguage(lang.id)}
+                onPress={() => toggle(setSelectedLanguages, lang.id)}
               />
             ))}
           </View>
         </View>
 
+        {/* Playstyle */}
         <View style={styles.section}>
-          <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.text }]}>
-            {t("filters.playstyle")}
-          </ThemedText>
+          <SectionHeader label={t("filters.playstyle")} theme={theme} />
           <View style={styles.chipGrid}>
             {PLAYSTYLES.map((ps) => (
               <SelectableChip
                 key={ps.id}
                 label={t(`gameData.playstyles.${ps.id}`)}
                 selected={selectedPlaystyles.includes(ps.id)}
-                onPress={() => togglePlaystyle(ps.id)}
+                onPress={() => toggle(setSelectedPlaystyles, ps.id)}
                 icon={ps.icon as any}
               />
             ))}
           </View>
         </View>
 
+        {/* Toggles */}
         <View style={styles.section}>
-          <View style={[styles.toggleRow, { backgroundColor: theme.backgroundSecondary, borderWidth: 1, borderColor: theme.border }]}>
-            <View style={styles.toggleLabel}>
-              <Feather name="mic" size={20} color={theme.text} />
-              <ThemedText style={[styles.toggleText, { color: theme.text }]}>
-                {t("filters.micRequired")}
-              </ThemedText>
-            </View>
-            <Pressable
-              onPress={() => setMicRequired(!micRequired)}
-              style={[
-                styles.toggle,
-                {
-                  backgroundColor: micRequired
-                    ? theme.success
-                    : theme.backgroundTertiary,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: micRequired ? 20 : 0 }] },
-                ]}
-              />
-            </Pressable>
-          </View>
-
-          <View style={[styles.toggleRow, { backgroundColor: theme.backgroundSecondary, borderWidth: 1, borderColor: theme.border }]}>
-            <View style={styles.toggleLabel}>
-              <Feather
-                name="zap"
-                size={20}
-                color={availableNowOnly ? theme.secondary : theme.text}
-              />
-              <View style={styles.toggleLabelContent}>
-                <ThemedText style={[styles.toggleText, { color: theme.text }]}>
-                  {t("filters.availableNowOnly")}
-                </ThemedText>
-                <ThemedText style={[styles.toggleSubtext, { color: theme.textSecondary }]}>
-                  {t("filters.availableNowSubtext")}
-                </ThemedText>
-              </View>
-            </View>
-            <Pressable
-              onPress={() => setAvailableNowOnly(!availableNowOnly)}
-              style={[
-                styles.toggle,
-                {
-                  backgroundColor: availableNowOnly
-                    ? theme.secondary
-                    : theme.backgroundTertiary,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: availableNowOnly ? 20 : 0 }] },
-                ]}
-              />
-            </Pressable>
-          </View>
+          <SectionHeader label={t("settings.feedback")} theme={theme} />
+          <ToggleCard
+            icon="mic"
+            title={t("filters.micRequired")}
+            value={micRequired}
+            onToggle={() => setMicRequired(!micRequired)}
+            activeColor={theme.success}
+            theme={theme}
+          />
+          <ToggleCard
+            icon="zap"
+            title={t("filters.availableNowOnly")}
+            subtitle={t("filters.availableNowSubtext")}
+            value={availableNowOnly}
+            onToggle={() => setAvailableNowOnly(!availableNowOnly)}
+            activeColor={theme.secondary}
+            theme={theme}
+          />
         </View>
       </ScrollView>
 
+      {/* Footer */}
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + Spacing.sm,
+            borderTopColor: `${theme.border}50`,
+            backgroundColor: theme.backgroundRoot,
+          },
+        ]}
       >
         {hasFilters ? (
-          <Pressable onPress={handleReset} style={styles.resetButton}>
-            <Feather name="x" size={18} color={theme.textSecondary} />
-            <ThemedText style={[styles.resetText, { color: theme.textSecondary }]}>{t("common.reset")}</ThemedText>
+          <Pressable onPress={handleReset} style={styles.resetBtn}>
+            <View style={[styles.resetIconBg, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="x" size={16} color={theme.textSecondary} />
+            </View>
+            <ThemedText style={{ color: theme.textSecondary, fontSize: 15, fontWeight: "600" }}>
+              {t("common.reset")}
+            </ThemedText>
           </Pressable>
         ) : (
-          <View />
+          <View style={{ width: 80 }} />
         )}
-        <Button onPress={handleApply} style={styles.applyButton}>
-          {t("filters.applyFilters")}
-        </Button>
+
+        <Pressable onPress={handleApply} style={styles.applyBtn}>
+          <LinearGradient
+            colors={[theme.primary, `${theme.primary}BB`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.applyGradient}
+          >
+            <Feather name="sliders" size={16} color="#FFFFFF" />
+            <ThemedText style={styles.applyText}>{t("filters.applyFilters")}</ThemedText>
+          </LinearGradient>
+        </Pressable>
       </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     gap: Spacing.xl,
   },
-  section: {
-    gap: Spacing.md,
-  },
-  sectionTitle: {
-    marginLeft: 4,
-  },
-  gamesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  gameCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    gap: Spacing.sm,
-  },
-  gameCardText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  chipGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-  },
-  toggleLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  toggleText: {
-    fontSize: 16,
-  },
-  toggleLabelContent: {
-    gap: 2,
-  },
-  toggleSubtext: {
-    fontSize: 12,
-  },
-  toggle: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    padding: 2,
-  },
-  toggleKnob: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-  },
+  section: { gap: Spacing.md },
+  pillsRow: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
+  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -391,20 +453,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    borderTopWidth: 1,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  resetButton: {
+  resetBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    padding: Spacing.sm,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
-  resetText: {
-    fontSize: 16,
+  resetIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  applyButton: {
-    paddingHorizontal: Spacing["3xl"],
+  applyBtn: {},
+  applyGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing["2xl"],
+    paddingVertical: 14,
+    borderRadius: BorderRadius.full,
   },
+  applyText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
 });
