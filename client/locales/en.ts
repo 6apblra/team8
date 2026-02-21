@@ -83,6 +83,8 @@ export default {
     superLikesLeft: "{{count}} super likes left",
     superLikeLimitTitle: "Super Like Limit",
     superLikeLimitMessage: "You've used all your super likes for today. Upgrade to Premium for 5 super likes per day!",
+    undoErrorTitle: "Cannot Undo",
+    undoErrorMessage: "No recent swipe to undo.",
     playingNow: "Playing Now",
     playingNowActive: "You're Online",
     setPlayingNow: "Set Playing Status",

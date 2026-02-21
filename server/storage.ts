@@ -149,6 +149,9 @@ export interface IStorage {
   createSwipe(swipe: InsertSwipe): Promise<Swipe>;
   getSwipe(fromUserId: string, toUserId: string): Promise<Swipe | undefined>;
   checkMutualLike(user1Id: string, user2Id: string): Promise<boolean>;
+  deleteLastSwipe(userId: string): Promise<Swipe | null>;
+  decrementDailySwipeCount(userId: string): Promise<void>;
+  deleteMatchByUsers(user1Id: string, user2Id: string): Promise<void>;
 
   createMatch(user1Id: string, user2Id: string): Promise<Match>;
   getMatches(userId: string): Promise<Match[]>;
@@ -665,6 +668,49 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created.count || 0;
     }
+  }
+
+  async deleteLastSwipe(userId: string): Promise<Swipe | null> {
+    const [lastSwipe] = await db
+      .select()
+      .from(swipes)
+      .where(eq(swipes.fromUserId, userId))
+      .orderBy(desc(swipes.createdAt))
+      .limit(1);
+
+    if (!lastSwipe) return null;
+
+    await db.delete(swipes).where(eq(swipes.id, lastSwipe.id));
+    return lastSwipe;
+  }
+
+  async decrementDailySwipeCount(userId: string): Promise<void> {
+    const today = new Date().toISOString().split("T")[0];
+    const [existing] = await db
+      .select()
+      .from(dailySwipeCounts)
+      .where(
+        and(
+          eq(dailySwipeCounts.userId, userId),
+          eq(dailySwipeCounts.date, today),
+        ),
+      );
+
+    if (existing && (existing.count || 0) > 0) {
+      await db
+        .update(dailySwipeCounts)
+        .set({ count: (existing.count || 0) - 1 })
+        .where(eq(dailySwipeCounts.id, existing.id));
+    }
+  }
+
+  async deleteMatchByUsers(user1Id: string, user2Id: string): Promise<void> {
+    await db.delete(matches).where(
+      or(
+        and(eq(matches.user1Id, user1Id), eq(matches.user2Id, user2Id)),
+        and(eq(matches.user1Id, user2Id), eq(matches.user2Id, user1Id)),
+      ),
+    );
   }
 
   async getSwipeLimit(userId: string): Promise<number> {

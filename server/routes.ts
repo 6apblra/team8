@@ -661,6 +661,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  app.delete("/api/swipe/last", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+
+      const lastSwipe = await storage.deleteLastSwipe(userId);
+      if (!lastSwipe) {
+        return res.status(404).json({ error: "No swipe to undo" });
+      }
+
+      await storage.decrementDailySwipeCount(userId);
+
+      // If the swipe created a match, remove it
+      if (lastSwipe.swipeType === "like" || lastSwipe.swipeType === "super") {
+        await storage.deleteMatchByUsers(userId, lastSwipe.toUserId);
+      }
+
+      return res.json({ success: true, toUserId: lastSwipe.toUserId });
+    } catch (error) {
+      log.error({ err: error }, "Undo swipe error");
+      return res.status(500).json({ error: "Failed to undo swipe" });
+    }
+  });
+
   app.get("/api/swipe-status", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;

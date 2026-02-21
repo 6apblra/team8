@@ -132,6 +132,90 @@ function GlowButton({
   );
 }
 
+// ─── Undo Button ─────────────────────────────────────────────────────────────
+
+function UndoButton({
+  canUndo,
+  isPremium,
+  onPress,
+  theme,
+}: {
+  canUndo: boolean;
+  isPremium: boolean;
+  onPress: () => void;
+  theme: any;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View style={[animStyle, undoStyles.wrap]}>
+      <Animated.View
+        style={[
+          undoStyles.btn,
+          {
+            borderColor: canUndo ? theme.warning : `${theme.border}80`,
+            shadowColor: canUndo ? theme.warning : "transparent",
+            backgroundColor: canUndo ? `${theme.warning}14` : "transparent",
+          },
+        ]}
+      >
+        <Feather
+          name="rotate-ccw"
+          size={20}
+          color={canUndo ? theme.warning : `${theme.textSecondary}55`}
+          onPress={
+            canUndo
+              ? () => {
+                  scale.value = withSpring(0.85, { damping: 12 });
+                  setTimeout(() => { scale.value = withSpring(1, { damping: 12 }); }, 120);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onPress();
+                }
+              : undefined
+          }
+        />
+      </Animated.View>
+      {isPremium && (
+        <View style={[undoStyles.badge, { backgroundColor: theme.warning }]}>
+          <Feather name="zap" size={8} color="#000" />
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+const undoStyles = StyleSheet.create({
+  wrap: {
+    position: "absolute",
+    right: Spacing.xl,
+    bottom: 0,
+    alignItems: "center",
+  },
+  btn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
 // ─── Playing Now Widget ───────────────────────────────────────────────────────
 
 const DURATIONS = [
@@ -321,6 +405,7 @@ export default function DiscoverScreen() {
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [undoUsed, setUndoUsed] = useState(false); // free users: 1 undo per session
   const [filters, setFilters] = useState<SavedFilters | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -434,6 +519,25 @@ export default function DiscoverScreen() {
       }
     },
   });
+
+  const undoMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/swipe/last"),
+    onSuccess: () => {
+      setCurrentIndex((prev) => Math.max(0, prev - 1));
+      if (!user?.isPremium) setUndoUsed(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/swipe-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    },
+    onError: () => {
+      Alert.alert(t("discover.undoErrorTitle"), t("discover.undoErrorMessage"));
+    },
+  });
+
+  const canUndo =
+    currentIndex > 0 &&
+    !undoMutation.isPending &&
+    (user?.isPremium || !undoUsed);
 
   const currentCandidate = candidates[currentIndex];
   const nextCandidate = candidates[currentIndex + 1];
@@ -724,6 +828,12 @@ export default function DiscoverScreen() {
             color="#00FF88"
             size="large"
             onPress={() => handleButtonSwipe("right")}
+          />
+          <UndoButton
+            canUndo={canUndo}
+            isPremium={!!user?.isPremium}
+            onPress={() => undoMutation.mutate()}
+            theme={theme}
           />
         </View>
       </View>

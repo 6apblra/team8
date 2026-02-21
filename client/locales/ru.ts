@@ -83,6 +83,8 @@ export default {
     superLikesLeft: "{{count}} супер-лайков осталось",
     superLikeLimitTitle: "Лимит супер-лайков",
     superLikeLimitMessage: "Вы использовали все супер-лайки на сегодня. Перейдите на Premium — 5 супер-лайков в день!",
+    undoErrorTitle: "Нельзя отменить",
+    undoErrorMessage: "Нет недавних свайпов для отмены.",
     playingNow: "Играю сейчас",
     playingNowActive: "Вы онлайн",
     setPlayingNow: "Статус доступности",
