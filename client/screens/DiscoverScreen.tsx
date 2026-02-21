@@ -42,6 +42,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
+import { ProfileBottomSheet, ProfileSheetData } from "@/components/ProfileBottomSheet";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -59,6 +60,9 @@ interface FeedCandidate {
   region: string;
   languages?: string[];
   micEnabled?: boolean;
+  discordTag?: string | null;
+  steamId?: string | null;
+  riotId?: string | null;
   userGames: {
     gameId: string;
     rank?: string | null;
@@ -72,6 +76,7 @@ interface FeedCandidate {
   }[];
   isOnline?: boolean;
   isAvailableNow?: boolean;
+  superLikedMe?: boolean;
 }
 
 function GlowButton({
@@ -620,6 +625,7 @@ export default function DiscoverScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [filters, setFilters] = useState<SavedFilters | null>(null);
   const [matchOverlayData, setMatchOverlayData] = useState<MatchOverlayData | null>(null);
+  const [profileSheet, setProfileSheet] = useState<ProfileSheetData | null>(null);
   const lastSwipedCandidateRef = useRef<FeedCandidate | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -949,6 +955,27 @@ export default function DiscoverScreen() {
   const superRemaining = swipeStatus?.superLikesRemaining ?? 1;
   const swipeRemaining = swipeStatus?.remaining ?? "...";
 
+  const openProfileSheet = useCallback((candidate: FeedCandidate) => {
+    setProfileSheet({
+      userId: candidate.userId,
+      nickname: candidate.nickname,
+      avatarUrl: candidate.avatarUrl,
+      age: candidate.age,
+      bio: candidate.bio,
+      region: candidate.region,
+      languages: candidate.languages,
+      micEnabled: candidate.micEnabled,
+      discordTag: candidate.discordTag,
+      steamId: candidate.steamId,
+      riotId: candidate.riotId,
+      superLikedMe: candidate.superLikedMe,
+      isOnline: candidate.isOnline,
+      isAvailableNow: candidate.isAvailableNow,
+      userGames: candidate.userGames,
+      availability: candidate.availability,
+    });
+  }, []);
+
   const handleMatchSendMessage = useCallback(() => {
     if (!matchOverlayData) return;
     setMatchOverlayData(null);
@@ -972,6 +999,12 @@ export default function DiscoverScreen() {
           t={t}
         />
       )}
+      <ProfileBottomSheet
+        data={profileSheet}
+        onClose={() => setProfileSheet(null)}
+        onLike={profileSheet ? () => { setProfileSheet(null); handleButtonSwipe("right"); } : undefined}
+        onSuperLike={profileSheet ? () => { setProfileSheet(null); handleButtonSwipe("up"); } : undefined}
+      />
       <View style={[styles.content, { paddingTop: headerHeight + Spacing.sm }]}>
 
         {/* Counters row */}
@@ -1050,6 +1083,8 @@ export default function DiscoverScreen() {
                   isTopCard={true}
                   isOnline={currentCandidate.isOnline}
                   isAvailableNow={currentCandidate.isAvailableNow}
+                  superLikedMe={currentCandidate.superLikedMe}
+                  onPressInfo={() => openProfileSheet(currentCandidate)}
                 />
               </Animated.View>
             </GestureDetector>

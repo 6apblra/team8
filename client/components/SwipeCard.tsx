@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, StyleSheet, Dimensions, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -42,6 +42,8 @@ interface SwipeCardProps {
   isTopCard?: boolean;
   isOnline?: boolean;
   isAvailableNow?: boolean;
+  superLikedMe?: boolean;
+  onPressInfo?: () => void;
   width?: number;
   height?: number;
 }
@@ -60,6 +62,8 @@ export function SwipeCard({
   isTopCard = false,
   isOnline = false,
   isAvailableNow = false,
+  superLikedMe = false,
+  onPressInfo,
   width,
   height,
 }: SwipeCardProps) {
@@ -109,6 +113,14 @@ export function SwipeCard({
         pointerEvents="none"
       />
 
+      {/* Super Like banner — top center */}
+      {superLikedMe && (
+        <View style={styles.superLikedBanner}>
+          <Feather name="star" size={13} color="#FFD700" />
+          <ThemedText style={styles.superLikedText}>Super Liked you</ThemedText>
+        </View>
+      )}
+
       {/* Status badges — top right */}
       {(isOnline || isAvailableNow) && (
         <View style={styles.statusContainer}>
@@ -147,6 +159,17 @@ export function SwipeCard({
           <Feather name="star" size={18} color="#FFD700" />
           <ThemedText style={styles.superLabelText}>SUPER</ThemedText>
         </Animated.View>
+      )}
+
+      {/* Info button */}
+      {onPressInfo && (
+        <Pressable
+          onPress={onPressInfo}
+          style={styles.infoBtn}
+          hitSlop={12}
+        >
+          <Feather name="info" size={18} color="rgba(255,255,255,0.75)" />
+        </Pressable>
       )}
 
       {/* Info panel — overlaid at bottom */}
@@ -217,6 +240,41 @@ const styles = StyleSheet.create({
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 16,
+  },
+  superLikedBanner: {
+    position: "absolute",
+    top: 16,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,215,0,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.55)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    zIndex: 10,
+  },
+  superLikedText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFD700",
+    letterSpacing: 0.3,
+  },
+  infoBtn: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
   },
   statusContainer: {
     position: "absolute",

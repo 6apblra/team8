@@ -143,6 +143,7 @@ export interface IStorage {
       availability: AvailabilityWindow[];
       isOnline: boolean;
       isAvailableNow: boolean;
+      superLikedMe: boolean;
     })[]
   >;
 
@@ -359,6 +360,7 @@ export class DatabaseStorage implements IStorage {
       availability: AvailabilityWindow[];
       isOnline: boolean;
       isAvailableNow: boolean;
+      superLikedMe: boolean;
     })[]
   > {
     const blockedIds = await this.getBlockedUsers(userId);
@@ -499,7 +501,10 @@ export class DatabaseStorage implements IStorage {
       return aSuper - bSuper;
     });
 
-    return filtered;
+    return filtered.map((f) => ({
+      ...f,
+      superLikedMe: superLikerSet.has(f.userId),
+    }));
   }
 
   async createSwipe(swipe: InsertSwipe): Promise<Swipe> {
