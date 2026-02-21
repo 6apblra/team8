@@ -5,6 +5,8 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -16,6 +18,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
   Easing,
   runOnJS,
   interpolate,
@@ -125,6 +129,186 @@ function GlowButton({
         </Animated.View>
       </Animated.View>
     </Animated.View>
+  );
+}
+
+// ─── Playing Now Widget ───────────────────────────────────────────────────────
+
+const DURATIONS = [
+  { label: "30m", minutes: 30 },
+  { label: "1h", minutes: 60 },
+  { label: "2h", minutes: 120 },
+  { label: "4h", minutes: 240 },
+];
+
+function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [countdown, setCountdown] = useState("");
+
+  const isActive = !!(
+    profile?.isAvailableNow &&
+    profile?.availableUntil &&
+    new Date(profile.availableUntil) > new Date()
+  );
+
+  // countdown timer
+  useEffect(() => {
+    if (!isActive || !profile?.availableUntil) {
+      setCountdown("");
+      return;
+    }
+    const update = () => {
+      const diff = new Date(profile.availableUntil!).getTime() - Date.now();
+      if (diff <= 0) { setCountdown(""); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setCountdown(h > 0 ? `${h}h ${m}m` : `${m}m`);
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, [isActive, profile?.availableUntil]);
+
+  // glow pulse when active
+  const glowOpacity = useSharedValue(0);
+  const glowScale = useSharedValue(1);
+  useEffect(() => {
+    if (isActive) {
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.65, { duration: 900 }),
+          withTiming(0.15, { duration: 900 }),
+        ), -1, true,
+      );
+      glowScale.value = withRepeat(
+        withSequence(
+          withTiming(1.5, { duration: 900 }),
+          withTiming(1, { duration: 900 }),
+        ), -1, true,
+      );
+    } else {
+      glowOpacity.value = withTiming(0, { duration: 300 });
+      glowScale.value = withTiming(1, { duration: 300 });
+    }
+  }, [isActive]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }));
+
+  const activateMutation = useMutation({
+    mutationFn: (minutes: number) =>
+      apiRequest("POST", "/api/available-now", { durationMinutes: minutes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      setShowModal(false);
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/available-now"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      setShowModal(false);
+    },
+  });
+
+  const isLoading = activateMutation.isPending || deactivateMutation.isPending;
+
+  return (
+    <>
+      <Pressable onPress={() => setShowModal(true)} style={styles.nowPill}>
+        {/* glow dot */}
+        <View style={styles.nowDotWrap}>
+          {isActive && (
+            <Animated.View
+              style={[
+                styles.nowGlow,
+                { backgroundColor: theme.success },
+                glowStyle,
+              ]}
+            />
+          )}
+          <View
+            style={[
+              styles.nowDot,
+              { backgroundColor: isActive ? theme.success : theme.textSecondary },
+            ]}
+          />
+        </View>
+        <ThemedText
+          style={[
+            styles.nowText,
+            { color: isActive ? theme.success : theme.textSecondary },
+          ]}
+        >
+          {isActive ? (countdown || "Active") : t("discover.playingNow") }
+        </ThemedText>
+      </Pressable>
+
+      <Modal visible={showModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowModal(false)}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
+
+            <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
+              {isActive ? t("discover.playingNowActive") : t("discover.setPlayingNow")}
+            </ThemedText>
+            <ThemedText style={[styles.modalSub, { color: theme.textSecondary }]}>
+              {isActive
+                ? (countdown ? `${t("discover.timeLeft")}: ${countdown}` : "")
+                : t("discover.playingNowSubtitle")}
+            </ThemedText>
+
+            {isActive ? (
+              <Pressable
+                onPress={() => deactivateMutation.mutate()}
+                disabled={isLoading}
+                style={[styles.deactivateBtn, { borderColor: theme.danger }]}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={theme.danger} size="small" />
+                ) : (
+                  <ThemedText style={{ color: theme.danger, fontWeight: "700", fontSize: 15 }}>
+                    {t("discover.turnOff")}
+                  </ThemedText>
+                )}
+              </Pressable>
+            ) : (
+              <View style={styles.durationGrid}>
+                {DURATIONS.map((d) => (
+                  <Pressable
+                    key={d.minutes}
+                    onPress={() => activateMutation.mutate(d.minutes)}
+                    disabled={isLoading}
+                    style={[
+                      styles.durationBtn,
+                      { backgroundColor: `${theme.success}18`, borderColor: theme.success },
+                    ]}
+                  >
+                    {activateMutation.isPending ? (
+                      <ActivityIndicator color={theme.success} size="small" />
+                    ) : (
+                      <>
+                        <Feather name="zap" size={18} color={theme.success} />
+                        <ThemedText style={{ color: theme.success, fontWeight: "700", fontSize: 16 }}>
+                          {d.label}
+                        </ThemedText>
+                      </>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -464,6 +648,7 @@ export default function DiscoverScreen() {
               {String(superRemaining)}
             </ThemedText>
           </View>
+          <PlayingNowWidget theme={theme} t={t} />
         </View>
 
         {/* Card stack */}
@@ -637,5 +822,91 @@ const styles = StyleSheet.create({
   glowButtonInner: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  // PlayingNow
+  nowPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
+  },
+  nowDotWrap: {
+    width: 10,
+    height: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nowGlow: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  nowDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  nowText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+    gap: Spacing.lg,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  modalSub: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: -Spacing.sm,
+  },
+  durationGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  durationBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+  },
+  deactivateBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    marginTop: Spacing.sm,
   },
 });

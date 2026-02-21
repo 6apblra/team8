@@ -83,6 +83,12 @@ export default {
     superLikesLeft: "{{count}} супер-лайков осталось",
     superLikeLimitTitle: "Лимит супер-лайков",
     superLikeLimitMessage: "Вы использовали все супер-лайки на сегодня. Перейдите на Premium — 5 супер-лайков в день!",
+    playingNow: "Играю сейчас",
+    playingNowActive: "Вы онлайн",
+    setPlayingNow: "Статус доступности",
+    playingNowSubtitle: "Дайте другим знать, что вы готовы играть прямо сейчас",
+    timeLeft: "Осталось",
+    turnOff: "Отключить",
   },
 
   matches: {

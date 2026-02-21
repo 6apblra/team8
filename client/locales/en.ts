@@ -83,6 +83,12 @@ export default {
     superLikesLeft: "{{count}} super likes left",
     superLikeLimitTitle: "Super Like Limit",
     superLikeLimitMessage: "You've used all your super likes for today. Upgrade to Premium for 5 super likes per day!",
+    playingNow: "Playing Now",
+    playingNowActive: "You're Online",
+    setPlayingNow: "Set Playing Status",
+    playingNowSubtitle: "Let others know you're available to play right now",
+    timeLeft: "Time left",
+    turnOff: "Turn Off",
   },
 
   matches: {
