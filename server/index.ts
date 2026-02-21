@@ -241,6 +241,7 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  app.set("trust proxy", 1);
   setupCors(app);
   setupSession(app);
   setupBodyParsing(app);

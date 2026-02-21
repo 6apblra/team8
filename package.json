@@ -2,6 +2,7 @@
   "name": "my-app",
   "main": "client/index.js",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "bash scripts/dev-start.sh",
     "dev:backend": "bash scripts/dev-backend.sh",
