@@ -152,6 +152,9 @@ export interface IStorage {
   deleteLastSwipe(userId: string): Promise<Swipe | null>;
   decrementDailySwipeCount(userId: string): Promise<void>;
   deleteMatchByUsers(user1Id: string, user2Id: string): Promise<void>;
+  getDailyUndoCount(userId: string): number;
+  incrementDailyUndoCount(userId: string): void;
+  getUndoLimit(userId: string): Promise<number>;
 
   createMatch(user1Id: string, user2Id: string): Promise<Match>;
   getMatches(userId: string): Promise<Match[]>;
@@ -195,6 +198,30 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private undoMap = new Map<string, { date: string; count: number }>();
+
+  getDailyUndoCount(userId: string): number {
+    const today = new Date().toISOString().split("T")[0];
+    const entry = this.undoMap.get(userId);
+    if (!entry || entry.date !== today) return 0;
+    return entry.count;
+  }
+
+  incrementDailyUndoCount(userId: string): void {
+    const today = new Date().toISOString().split("T")[0];
+    const entry = this.undoMap.get(userId);
+    if (!entry || entry.date !== today) {
+      this.undoMap.set(userId, { date: today, count: 1 });
+    } else {
+      entry.count += 1;
+    }
+  }
+
+  async getUndoLimit(userId: string): Promise<number> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user?.isPremium ? 5 : 1;
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;

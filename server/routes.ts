@@ -665,19 +665,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.session.userId!;
 
+      const [undoCount, undoLimit] = await Promise.all([
+        Promise.resolve(storage.getDailyUndoCount(userId)),
+        storage.getUndoLimit(userId),
+      ]);
+
+      if (undoCount >= undoLimit) {
+        return res.status(429).json({
+          error: "Daily undo limit reached",
+          undoCount,
+          undoLimit,
+        });
+      }
+
       const lastSwipe = await storage.deleteLastSwipe(userId);
       if (!lastSwipe) {
         return res.status(404).json({ error: "No swipe to undo" });
       }
 
+      storage.incrementDailyUndoCount(userId);
       await storage.decrementDailySwipeCount(userId);
 
-      // If the swipe created a match, remove it
       if (lastSwipe.swipeType === "like" || lastSwipe.swipeType === "super") {
         await storage.deleteMatchByUsers(userId, lastSwipe.toUserId);
       }
 
-      return res.json({ success: true, toUserId: lastSwipe.toUserId });
+      const newUndoCount = undoCount + 1;
+      return res.json({
+        success: true,
+        toUserId: lastSwipe.toUserId,
+        undoCount: newUndoCount,
+        undoLimit,
+        undoRemaining: undoLimit - newUndoCount,
+      });
     } catch (error) {
       log.error({ err: error }, "Undo swipe error");
       return res.status(500).json({ error: "Failed to undo swipe" });
@@ -687,12 +707,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/swipe-status", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const [dailyCount, limit, superLikeCount, superLikeLimit] = await Promise.all([
+      const [dailyCount, limit, superLikeCount, superLikeLimit, undoLimit] = await Promise.all([
         storage.getDailySwipeCount(userId),
         storage.getSwipeLimit(userId),
         storage.getDailySuperLikeCount(userId),
         storage.getSuperLikeLimit(userId),
+        storage.getUndoLimit(userId),
       ]);
+      const undoCount = storage.getDailyUndoCount(userId);
       return res.json({
         dailyCount,
         limit,
@@ -700,6 +722,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         superLikeCount,
         superLikeLimit,
         superLikesRemaining: superLikeLimit - superLikeCount,
+        undoCount,
+        undoLimit,
+        undoRemaining: undoLimit - undoCount,
       });
     } catch (error) {
       log.error({ err: error }, "Get swipe status error");

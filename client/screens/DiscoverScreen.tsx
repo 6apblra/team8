@@ -405,7 +405,6 @@ export default function DiscoverScreen() {
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [undoUsed, setUndoUsed] = useState(false); // free users: 1 undo per session
   const [filters, setFilters] = useState<SavedFilters | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -481,6 +480,9 @@ export default function DiscoverScreen() {
     superLikeCount: number;
     superLikeLimit: number;
     superLikesRemaining: number;
+    undoCount: number;
+    undoLimit: number;
+    undoRemaining: number;
   }>({
     queryKey: ["/api/swipe-status", user?.id],
     enabled: !!user?.id,
@@ -524,7 +526,6 @@ export default function DiscoverScreen() {
     mutationFn: () => apiRequest("DELETE", "/api/swipe/last"),
     onSuccess: () => {
       setCurrentIndex((prev) => Math.max(0, prev - 1));
-      if (!user?.isPremium) setUndoUsed(true);
       queryClient.invalidateQueries({ queryKey: ["/api/swipe-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -537,7 +538,7 @@ export default function DiscoverScreen() {
   const canUndo =
     currentIndex > 0 &&
     !undoMutation.isPending &&
-    (user?.isPremium || !undoUsed);
+    (swipeStatus?.undoRemaining ?? 1) > 0;
 
   const currentCandidate = candidates[currentIndex];
   const nextCandidate = candidates[currentIndex + 1];
