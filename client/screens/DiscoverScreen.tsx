@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -18,12 +18,18 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withDelay,
   withRepeat,
   withSequence,
   Easing,
   runOnJS,
   interpolate,
 } from "react-native-reanimated";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -216,6 +222,212 @@ const undoStyles = StyleSheet.create({
   },
 });
 
+// ─── Match Overlay ────────────────────────────────────────────────────────────
+
+interface MatchOverlayData {
+  matchId: string;
+  matchedNickname: string;
+  matchedAvatarUrl?: string | null;
+  matchedUserId: string;
+}
+
+function MatchOverlay({
+  data,
+  myAvatarUrl,
+  onSendMessage,
+  onKeepSwiping,
+  theme,
+  t,
+}: {
+  data: MatchOverlayData;
+  myAvatarUrl?: string | null;
+  onSendMessage: () => void;
+  onKeepSwiping: () => void;
+  theme: any;
+  t: any;
+}) {
+  const bgOpacity = useSharedValue(0);
+  const myScale = useSharedValue(0);
+  const theirScale = useSharedValue(0);
+  const heartScale = useSharedValue(0);
+  const titleY = useSharedValue(30);
+  const titleOpacity = useSharedValue(0);
+  const btnsY = useSharedValue(40);
+  const btnsOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    bgOpacity.value = withTiming(1, { duration: 350 });
+    myScale.value = withDelay(100, withSpring(1, { damping: 13, stiffness: 160 }));
+    theirScale.value = withDelay(220, withSpring(1, { damping: 13, stiffness: 160 }));
+    heartScale.value = withDelay(350, withSpring(1, { damping: 10, stiffness: 200 }));
+    titleY.value = withDelay(320, withTiming(0, { duration: 380, easing: Easing.out(Easing.back(1.4)) }));
+    titleOpacity.value = withDelay(320, withTiming(1, { duration: 380 }));
+    btnsY.value = withDelay(460, withTiming(0, { duration: 360, easing: Easing.out(Easing.quad) }));
+    btnsOpacity.value = withDelay(460, withTiming(1, { duration: 360 }));
+  }, []);
+
+  const bgStyle = useAnimatedStyle(() => ({ opacity: bgOpacity.value }));
+  const myStyle = useAnimatedStyle(() => ({ transform: [{ scale: myScale.value }] }));
+  const theirStyle = useAnimatedStyle(() => ({ transform: [{ scale: theirScale.value }] }));
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: titleY.value }],
+    opacity: titleOpacity.value,
+  }));
+  const btnsStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: btnsY.value }],
+    opacity: btnsOpacity.value,
+  }));
+
+  const myAvatar = myAvatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=me`;
+  const theirAvatar = data.matchedAvatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${data.matchedNickname}`;
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent>
+      <Animated.View style={[matchStyles.overlay, bgStyle]}>
+        <LinearGradient
+          colors={["rgba(0,0,0,0.93)", "rgba(8,4,28,0.97)", "rgba(0,0,0,0.93)"]}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        <View style={matchStyles.content}>
+          {/* Avatars row */}
+          <View style={matchStyles.avatarsRow}>
+            <Animated.View style={myStyle}>
+              <View style={[matchStyles.avatarRing, { borderColor: theme.primary, shadowColor: theme.primary }]}>
+                <Image source={{ uri: myAvatar }} style={matchStyles.avatar} contentFit="cover" />
+              </View>
+            </Animated.View>
+
+            <Animated.View style={[matchStyles.heartWrap, { backgroundColor: `${theme.primary}22` }, heartStyle]}>
+              <Feather name="heart" size={28} color={theme.primary} />
+            </Animated.View>
+
+            <Animated.View style={theirStyle}>
+              <View style={[matchStyles.avatarRing, { borderColor: theme.secondary, shadowColor: theme.secondary }]}>
+                <Image source={{ uri: theirAvatar }} style={matchStyles.avatar} contentFit="cover" />
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* Title */}
+          <Animated.View style={[{ alignItems: "center", gap: 10 }, titleStyle]}>
+            <ThemedText style={matchStyles.title}>{t("discover.itsAMatch")}</ThemedText>
+            <ThemedText style={[matchStyles.subtitle, { color: "rgba(255,255,255,0.6)" }]}>
+              {t("discover.matchSubtitle", { name: data.matchedNickname })}
+            </ThemedText>
+          </Animated.View>
+
+          {/* Buttons */}
+          <Animated.View style={[matchStyles.buttons, btnsStyle]}>
+            <LinearGradient
+              colors={[theme.primary, theme.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={matchStyles.sendGradient}
+            >
+              <Pressable onPress={onSendMessage} style={matchStyles.sendInner}>
+                <Feather name="message-circle" size={20} color="#fff" />
+                <ThemedText style={matchStyles.sendText}>{t("discover.sendMessage")}</ThemedText>
+              </Pressable>
+            </LinearGradient>
+
+            <Pressable onPress={onKeepSwiping} style={matchStyles.keepBtn}>
+              <ThemedText style={[matchStyles.keepText, { color: "rgba(255,255,255,0.5)" }]}>
+                {t("discover.keepSwiping")}
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const matchStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  content: {
+    width: "100%",
+    paddingHorizontal: 40,
+    alignItems: "center",
+    gap: 36,
+  },
+  avatarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  avatarRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.75,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 14,
+  },
+  avatar: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+  },
+  heartWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  buttons: {
+    width: "100%",
+    gap: 16,
+    alignItems: "center",
+  },
+  sendGradient: {
+    width: "100%",
+    borderRadius: 50,
+    overflow: "hidden",
+  },
+  sendInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+  },
+  sendText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  keepBtn: {
+    paddingVertical: 10,
+  },
+  keepText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+});
+
 // ─── Playing Now Widget ───────────────────────────────────────────────────────
 
 const DURATIONS = [
@@ -399,13 +611,16 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
 export default function DiscoverScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [filters, setFilters] = useState<SavedFilters | null>(null);
+  const [matchOverlayData, setMatchOverlayData] = useState<MatchOverlayData | null>(null);
+  const lastSwipedCandidateRef = useRef<FeedCandidate | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const nextCardTranslateX = useSharedValue(0);
@@ -489,7 +704,7 @@ export default function DiscoverScreen() {
   });
 
   const swipeMutation = useMutation<
-    { match?: boolean },
+    { match?: { id: string; user1Id: string; user2Id: string } | null },
     Error,
     { toUserId: string; swipeType: string }
   >({
@@ -500,14 +715,23 @@ export default function DiscoverScreen() {
       toUserId: string;
       swipeType: string;
     }) => {
-      return apiRequest<{ match?: boolean }>("POST", "/api/swipe", {
+      return apiRequest<{ match?: { id: string; user1Id: string; user2Id: string } | null }>("POST", "/api/swipe", {
         toUserId,
         swipeType,
       });
     },
     onSuccess: (data) => {
-      if (data.match) {
+      if (data.match?.id) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const candidate = lastSwipedCandidateRef.current;
+        if (candidate) {
+          setMatchOverlayData({
+            matchId: data.match.id,
+            matchedNickname: candidate.nickname,
+            matchedAvatarUrl: candidate.avatarUrl,
+            matchedUserId: candidate.userId,
+          });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["/api/swipe-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
@@ -564,6 +788,7 @@ export default function DiscoverScreen() {
           : Haptics.ImpactFeedbackStyle.Medium,
       );
 
+      lastSwipedCandidateRef.current = currentCandidate;
       swipeMutation.mutate({
         toUserId: currentCandidate.userId,
         swipeType,
@@ -724,8 +949,29 @@ export default function DiscoverScreen() {
   const superRemaining = swipeStatus?.superLikesRemaining ?? 1;
   const swipeRemaining = swipeStatus?.remaining ?? "...";
 
+  const handleMatchSendMessage = useCallback(() => {
+    if (!matchOverlayData) return;
+    setMatchOverlayData(null);
+    navigation.navigate("Chat", {
+      matchId: matchOverlayData.matchId,
+      nickname: matchOverlayData.matchedNickname,
+      avatarUrl: matchOverlayData.matchedAvatarUrl ?? null,
+      otherUserId: matchOverlayData.matchedUserId,
+    });
+  }, [matchOverlayData, navigation]);
+
   return (
     <ThemedView style={styles.container}>
+      {matchOverlayData && (
+        <MatchOverlay
+          data={matchOverlayData}
+          myAvatarUrl={profile?.avatarUrl}
+          onSendMessage={handleMatchSendMessage}
+          onKeepSwiping={() => setMatchOverlayData(null)}
+          theme={theme}
+          t={t}
+        />
+      )}
       <View style={[styles.content, { paddingTop: headerHeight + Spacing.sm }]}>
 
         {/* Counters row */}

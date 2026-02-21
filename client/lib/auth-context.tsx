@@ -11,6 +11,7 @@ import { wsManager } from "@/lib/websocket";
 interface User {
   id: string;
   email: string;
+  isPremium?: boolean;
 }
 
 export interface Profile {
