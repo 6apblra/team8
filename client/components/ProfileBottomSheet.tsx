@@ -17,11 +17,14 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import { useQuery } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
 import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { BorderRadius, Spacing, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, DAYS_OF_WEEK } from "@/lib/game-data";
+import { apiRequest } from "@/lib/api-client";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -77,6 +80,31 @@ const secStyles = StyleSheet.create({
   title: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
 });
 
+interface ReviewStats {
+  averageRating: number;
+  totalReviews: number;
+  tagCounts: Record<string, number>;
+}
+
+interface ReviewItem {
+  id: string;
+  rating: number;
+  tags: string[];
+  comment: string | null;
+  createdAt: string;
+  reviewer: { userId: string; nickname: string; avatarUrl: string | null };
+}
+
+function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Feather key={s} name="star" size={size} color={s <= rating ? "#FFB800" : "#444"} />
+      ))}
+    </View>
+  );
+}
+
 export function ProfileBottomSheet({
   data,
   onClose,
@@ -84,8 +112,23 @@ export function ProfileBottomSheet({
   onSuperLike,
 }: ProfileBottomSheetProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const bgOpacity = useSharedValue(0);
+
+  const { data: reviewStats } = useQuery<ReviewStats>({
+    queryKey: ["reviewStats", data?.userId],
+    enabled: !!data?.userId,
+    queryFn: () => apiRequest("GET", `/api/reviews/stats/${data!.userId}`),
+    staleTime: 60_000,
+  });
+
+  const { data: reviewsData } = useQuery<{ reviews: ReviewItem[]; hasReviewed: boolean }>({
+    queryKey: ["reviews", data?.userId],
+    enabled: !!data?.userId && !!reviewStats && reviewStats.totalReviews > 0,
+    queryFn: () => apiRequest("GET", `/api/reviews/${data!.userId}`),
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (data) {
@@ -161,6 +204,17 @@ export function ProfileBottomSheet({
                   </ThemedText>
                 ) : null}
               </View>
+              {reviewStats && reviewStats.totalReviews > 0 && (
+                <View style={sheetStyles.ratingRow}>
+                  <StarRow rating={Math.round(reviewStats.averageRating)} size={13} />
+                  <ThemedText style={[sheetStyles.ratingText, { color: "#FFB800" }]}>
+                    {reviewStats.averageRating.toFixed(1)}
+                  </ThemedText>
+                  <ThemedText style={[sheetStyles.ratingCount, { color: theme.textSecondary }]}>
+                    ({reviewStats.totalReviews})
+                  </ThemedText>
+                </View>
+              )}
 
               {data.superLikedMe && (
                 <View style={sheetStyles.superBadge}>
@@ -303,6 +357,70 @@ export function ProfileBottomSheet({
                   </View>
                 )}
               </View>
+            </View>
+          )}
+
+          {/* Reviews */}
+          {reviewStats && reviewStats.totalReviews > 0 && (
+            <View style={sheetStyles.sectionBlock}>
+              <SectionHeader title={t("reviews.title")} icon="star" />
+
+              {/* Summary bar */}
+              <View style={[sheetStyles.reviewSummary, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                <View style={sheetStyles.reviewSummaryLeft}>
+                  <ThemedText style={[sheetStyles.reviewBigRating, { color: theme.text }]}>
+                    {reviewStats.averageRating.toFixed(1)}
+                  </ThemedText>
+                  <StarRow rating={Math.round(reviewStats.averageRating)} size={16} />
+                  <ThemedText style={[sheetStyles.reviewSummaryCount, { color: theme.textSecondary }]}>
+                    {reviewStats.totalReviews} {t("reviews.title").toLowerCase()}
+                  </ThemedText>
+                </View>
+                {/* Top tags */}
+                {Object.keys(reviewStats.tagCounts).length > 0 && (
+                  <View style={sheetStyles.reviewTopTags}>
+                    {Object.entries(reviewStats.tagCounts)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 4)
+                      .map(([tag, count]) => (
+                        <View key={tag} style={[sheetStyles.reviewTagChip, { backgroundColor: `${theme.success}18`, borderColor: `${theme.success}40` }]}>
+                          <Feather name="check" size={10} color={theme.success} />
+                          <ThemedText style={[sheetStyles.reviewTagText, { color: theme.success }]}>
+                            {t(`reviews.tags_${tag}`)} · {count}
+                          </ThemedText>
+                        </View>
+                      ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Individual reviews */}
+              {reviewsData?.reviews.slice(0, 3).map((rev) => (
+                <View key={rev.id} style={[sheetStyles.reviewCard, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                  <View style={sheetStyles.reviewCardHeader}>
+                    <ThemedText style={[sheetStyles.reviewerName, { color: theme.text }]}>
+                      {rev.reviewer.nickname}
+                    </ThemedText>
+                    <StarRow rating={rev.rating} size={12} />
+                  </View>
+                  {rev.tags.length > 0 && (
+                    <View style={sheetStyles.reviewCardTags}>
+                      {rev.tags.map((tag) => (
+                        <View key={tag} style={[sheetStyles.reviewTagChipSm, { backgroundColor: theme.backgroundTertiary, borderColor: theme.border }]}>
+                          <ThemedText style={[sheetStyles.reviewTagTextSm, { color: theme.textSecondary }]}>
+                            {t(`reviews.tags_${tag}`)}
+                          </ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {rev.comment ? (
+                    <ThemedText style={[sheetStyles.reviewComment, { color: theme.textSecondary }]}>
+                      {rev.comment}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              ))}
             </View>
           )}
 
@@ -588,5 +706,100 @@ const sheetStyles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  // Rating inline
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  ratingCount: {
+    fontSize: 12,
+  },
+
+  // Reviews section
+  reviewSummary: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    flexDirection: "row",
+    gap: Spacing.md,
+    alignItems: "flex-start",
+  },
+  reviewSummaryLeft: {
+    alignItems: "center",
+    gap: 4,
+    minWidth: 56,
+  },
+  reviewBigRating: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  reviewSummaryCount: {
+    fontSize: 11,
+    textAlign: "center",
+  },
+  reviewTopTags: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignContent: "flex-start",
+  },
+  reviewTagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  reviewTagText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  reviewCard: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: 6,
+  },
+  reviewCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  reviewerName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reviewCardTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  reviewTagChipSm: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  reviewTagTextSm: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  reviewComment: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: "italic",
   },
 });

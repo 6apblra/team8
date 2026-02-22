@@ -34,6 +34,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { MessageBubble, TypingBubble, DateSeparator } from "@/components/MessageBubble";
 import { QuickMessageChip } from "@/components/QuickMessageChip";
+import { ReviewModal } from "@/components/ReviewModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -143,6 +144,7 @@ export default function ChatScreen() {
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const quickMessages = QUICK_MESSAGE_KEYS.map((key) =>
@@ -294,6 +296,7 @@ export default function ChatScreen() {
 
   const showOptionsMenu = useCallback(() => {
     Alert.alert(nickname, t("chat.chooseAction"), [
+      { text: t("reviews.leaveReview"), onPress: () => setShowReviewModal(true) },
       { text: t("chat.reportUser"), onPress: showReportOptions },
       {
         text: t("chat.blockUser"),
@@ -527,6 +530,13 @@ export default function ChatScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      <ReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        reviewedUserId={otherUserId}
+        matchId={matchId}
+        nickname={nickname}
+      />
     </ThemedView>
   );
 }

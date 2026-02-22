@@ -9,6 +9,7 @@ import {
   jsonb,
   index,
   primaryKey,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -47,6 +48,7 @@ export const profiles = pgTable("profiles", {
   lastSeenAt: timestamp("last_seen_at"),
   isAvailableNow: boolean("is_available_now").default(false),
   availableUntil: timestamp("available_until"),
+  boostedUntil: timestamp("boosted_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -163,6 +165,27 @@ export const messages = pgTable(
   ],
 );
 
+export const reactions = pgTable(
+  "reactions",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    messageId: varchar("message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("reactions_unique_idx").on(table.messageId, table.userId, table.emoji),
+    index("reactions_message_idx").on(table.messageId),
+  ],
+);
+
 export const reports = pgTable("reports", {
   id: varchar("id")
     .primaryKey()
@@ -210,6 +233,35 @@ export const dailySwipeCounts = pgTable(
     swipeLimit: integer("swipe_limit").default(50),
   },
   (table) => [index("daily_swipes_user_date_idx").on(table.userId, table.date)],
+);
+
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    reviewerId: varchar("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reviewedUserId: varchar("reviewed_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    matchId: varchar("match_id").references(() => matches.id, {
+      onDelete: "set null",
+    }),
+    rating: integer("rating").notNull(),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    comment: text("comment"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("reviews_reviewer_reviewed_idx").on(
+      table.reviewerId,
+      table.reviewedUserId,
+    ),
+    index("reviews_reviewed_user_idx").on(table.reviewedUserId),
+  ],
 );
 
 export const dailySuperLikeCounts = pgTable(
@@ -339,3 +391,6 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type AvailabilityWindow = typeof availabilityWindows.$inferSelect;
 export type Block = typeof blocks.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type Reaction = typeof reactions.$inferSelect;
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;

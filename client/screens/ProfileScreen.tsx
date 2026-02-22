@@ -277,6 +277,16 @@ export default function ProfileScreen() {
     enabled: !!user?.id && !!profile,
   });
 
+  const { data: reviewStats } = useQuery<{
+    averageRating: number;
+    totalReviews: number;
+    tagCounts: Record<string, number>;
+  }>({
+    queryKey: ["reviewStats", user?.id],
+    enabled: !!user?.id,
+    queryFn: () => apiRequest("GET", `/api/reviews/stats/${user!.id}`),
+  });
+
   useEffect(() => {
     if (profileData?.profile) {
       const { isAvailableNow: available, availableUntil: until } = profileData.profile;
@@ -549,6 +559,35 @@ export default function ProfileScreen() {
               ) : null}
             </View>
           </Animated.View>
+
+          {/* ── Reviews ── */}
+          {reviewStats && reviewStats.totalReviews > 0 && (
+            <Animated.View style={[styles.section, s3Style]}>
+              <SectionHeader title={t("reviews.title")} color={theme.warning} />
+              <View style={[styles.card, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
+                  <Feather name="star" size={20} color="#FFB800" />
+                  <ThemedText style={{ fontSize: 22, fontWeight: "700", color: theme.text }}>
+                    {reviewStats.averageRating.toFixed(1)}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 14, color: theme.textSecondary }}>
+                    {t("reviews.title")} · {reviewStats.totalReviews}
+                  </ThemedText>
+                </View>
+                {Object.entries(reviewStats.tagCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 5)
+                  .map(([tag, count]) => (
+                    <View key={tag} style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs, marginTop: 4 }}>
+                      <Feather name="check-circle" size={14} color={theme.success} />
+                      <ThemedText style={{ fontSize: 13, color: theme.textSecondary }}>
+                        {t(`reviews.tags_${tag}`)} · {count}
+                      </ThemedText>
+                    </View>
+                  ))}
+              </View>
+            </Animated.View>
+          )}
 
           {/* ── Settings ── */}
           <Animated.View style={[styles.section, s3Style]}>

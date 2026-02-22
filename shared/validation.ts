@@ -128,6 +128,30 @@ export const feedFiltersSchema = z.object({
   availableNowOnly: z.coerce.boolean().optional(),
 });
 
+// ============ Review Schema ============
+export const REVIEW_TAGS = [
+  "great_teamwork",
+  "communicative",
+  "skilled",
+  "calm",
+  "helpful",
+  "on_time",
+  "fun_to_play",
+  "reliable",
+  "strategic",
+  "flexible",
+] as const;
+
+export type ReviewTag = (typeof REVIEW_TAGS)[number];
+
+export const createReviewSchema = z.object({
+  reviewedUserId: z.string().uuid("Invalid user ID"),
+  matchId: z.string().uuid("Invalid match ID").optional(),
+  rating: z.number().int().min(1).max(5),
+  tags: z.array(z.enum(REVIEW_TAGS)).max(5, "Max 5 tags").default([]),
+  comment: z.string().max(300, "Comment too long").optional(),
+});
+
 // Type exports
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -144,3 +168,4 @@ export type ReportInput = z.infer<typeof reportSchema>;
 export type PushTokenInput = z.infer<typeof pushTokenSchema>;
 export type AvailableNowInput = z.infer<typeof availableNowSchema>;
 export type FeedFiltersInput = z.infer<typeof feedFiltersSchema>;
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;

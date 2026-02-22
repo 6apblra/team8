@@ -7,10 +7,12 @@ import {
   swipes,
   matches,
   messages,
+  reactions,
   reports,
   blocks,
   dailySwipeCounts,
   dailySuperLikeCounts,
+  reviews,
   type User,
   type InsertUser,
   type Profile,
@@ -24,9 +26,16 @@ import {
   type Message,
   type InsertMessage,
   type AvailabilityWindow,
+  type InsertReview,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, sql, desc, ne, notInArray } from "drizzle-orm";
+import { eq, and, or, sql, desc, ne, notInArray, inArray, gt } from "drizzle-orm";
+
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
 
 const RANK_ORDER: Record<string, string[]> = {
   valorant: [
@@ -162,9 +171,12 @@ export interface IStorage {
   getMatch(matchId: string): Promise<Match | undefined>;
   getMatchByUsers(user1Id: string, user2Id: string): Promise<Match | undefined>;
 
-  getMessages(matchId: string): Promise<Message[]>;
+  getMessages(matchId: string): Promise<(Message & { reactions: ReactionSummary[] })[]>;
+  getMessageById(messageId: string): Promise<Message | undefined>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessagesAsRead(matchId: string, userId: string): Promise<void>;
+  toggleReaction(messageId: string, userId: string, emoji: string): Promise<"added" | "removed">;
+  getMessageReactions(messageIds: string[]): Promise<Record<string, ReactionSummary[]>>;
 
   createReport(
     reporterId: string,
@@ -188,6 +200,9 @@ export interface IStorage {
   updateLastSeen(userId: string): Promise<void>;
   setAvailableNow(userId: string, durationMinutes: number): Promise<void>;
   clearAvailableNow(userId: string): Promise<void>;
+  setBoost(userId: string, durationMinutes: number): Promise<Date>;
+  clearBoost(userId: string): Promise<void>;
+  getBoostedUserIds(): Promise<string[]>;
   getOnlineUsers(
     userIds: string[],
   ): Promise<{ userId: string; isOnline: boolean; isAvailableNow: boolean }[]>;
@@ -493,12 +508,16 @@ export class DatabaseStorage implements IStorage {
       isAvailableNow: boolean;
     })[];
 
-    const superLikerIds = await this.getSuperLikerIds(userId);
+    const [superLikerIds, boostedIds] = await Promise.all([
+      this.getSuperLikerIds(userId),
+      this.getBoostedUserIds(),
+    ]);
     const superLikerSet = new Set(superLikerIds);
+    const boostSet = new Set(boostedIds);
     filtered.sort((a, b) => {
-      const aSuper = superLikerSet.has(a.userId) ? 0 : 1;
-      const bSuper = superLikerSet.has(b.userId) ? 0 : 1;
-      return aSuper - bSuper;
+      const aScore = (superLikerSet.has(a.userId) ? 0 : 2) + (boostSet.has(a.userId) ? 0 : 1);
+      const bScore = (superLikerSet.has(b.userId) ? 0 : 2) + (boostSet.has(b.userId) ? 0 : 1);
+      return aScore - bScore;
     });
 
     return filtered.map((f) => ({
@@ -579,12 +598,57 @@ export class DatabaseStorage implements IStorage {
     return match || undefined;
   }
 
-  async getMessages(matchId: string): Promise<Message[]> {
-    return db
+  async getMessages(matchId: string): Promise<(Message & { reactions: ReactionSummary[] })[]> {
+    const msgs = await db
       .select()
       .from(messages)
       .where(eq(messages.matchId, matchId))
       .orderBy(messages.createdAt);
+    const msgIds = msgs.map((m) => m.id);
+    const reactionMap = await this.getMessageReactions(msgIds);
+    return msgs.map((m) => ({ ...m, reactions: reactionMap[m.id] || [] }));
+  }
+
+  async getMessageById(messageId: string): Promise<Message | undefined> {
+    const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
+    return msg || undefined;
+  }
+
+  async toggleReaction(messageId: string, userId: string, emoji: string): Promise<"added" | "removed"> {
+    const existing = await db
+      .select()
+      .from(reactions)
+      .where(and(eq(reactions.messageId, messageId), eq(reactions.userId, userId), eq(reactions.emoji, emoji)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.delete(reactions).where(
+        and(eq(reactions.messageId, messageId), eq(reactions.userId, userId), eq(reactions.emoji, emoji)),
+      );
+      return "removed";
+    } else {
+      await db.insert(reactions).values({ messageId, userId, emoji });
+      return "added";
+    }
+  }
+
+  async getMessageReactions(messageIds: string[]): Promise<Record<string, ReactionSummary[]>> {
+    if (messageIds.length === 0) return {};
+    const rows = await db
+      .select()
+      .from(reactions)
+      .where(inArray(reactions.messageId, messageIds));
+    const result: Record<string, ReactionSummary[]> = {};
+    for (const row of rows) {
+      if (!result[row.messageId]) result[row.messageId] = [];
+      const existing = result[row.messageId].find((r) => r.emoji === row.emoji);
+      if (existing) {
+        existing.count++;
+        existing.userIds.push(row.userId);
+      } else {
+        result[row.messageId].push({ emoji: row.emoji, count: 1, userIds: [row.userId] });
+      }
+    }
+    return result;
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
@@ -891,6 +955,85 @@ export class DatabaseStorage implements IStorage {
 
   async removePushToken(userId: string): Promise<void> {
     await db.update(users).set({ pushToken: null }).where(eq(users.id, userId));
+  }
+
+  async setBoost(userId: string, durationMinutes: number): Promise<Date> {
+    const boostedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+    await db.update(profiles).set({ boostedUntil }).where(eq(profiles.userId, userId));
+    return boostedUntil;
+  }
+
+  async clearBoost(userId: string): Promise<void> {
+    await db.update(profiles).set({ boostedUntil: null }).where(eq(profiles.userId, userId));
+  }
+
+  async getBoostedUserIds(): Promise<string[]> {
+    const now = new Date();
+    const rows = await db
+      .select({ userId: profiles.userId })
+      .from(profiles)
+      .where(gt(profiles.boostedUntil, now));
+    return rows.map((r) => r.userId);
+  }
+
+  // Reviews
+  async createReview(data: InsertReview) {
+    const [review] = await db.insert(reviews).values(data).returning();
+    return review;
+  }
+
+  async hasReviewed(reviewerId: string, reviewedUserId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: reviews.id })
+      .from(reviews)
+      .where(and(eq(reviews.reviewerId, reviewerId), eq(reviews.reviewedUserId, reviewedUserId)));
+    return !!row;
+  }
+
+  async getReviewsForUser(userId: string) {
+    const rows = await db
+      .select({
+        id: reviews.id,
+        rating: reviews.rating,
+        tags: reviews.tags,
+        comment: reviews.comment,
+        createdAt: reviews.createdAt,
+        reviewer: {
+          userId: profiles.userId,
+          nickname: profiles.nickname,
+          avatarUrl: profiles.avatarUrl,
+        },
+      })
+      .from(reviews)
+      .innerJoin(profiles, eq(profiles.userId, reviews.reviewerId))
+      .where(eq(reviews.reviewedUserId, userId))
+      .orderBy(desc(reviews.createdAt));
+    return rows;
+  }
+
+  async getReviewStats(userId: string) {
+    const rows = await db
+      .select({ rating: reviews.rating, tags: reviews.tags })
+      .from(reviews)
+      .where(eq(reviews.reviewedUserId, userId));
+
+    if (rows.length === 0) {
+      return { averageRating: 0, totalReviews: 0, tagCounts: {} as Record<string, number> };
+    }
+
+    const totalRating = rows.reduce((sum, r) => sum + r.rating, 0);
+    const tagCounts: Record<string, number> = {};
+    for (const row of rows) {
+      for (const tag of (row.tags as string[]) || []) {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      }
+    }
+
+    return {
+      averageRating: Math.round((totalRating / rows.length) * 10) / 10,
+      totalReviews: rows.length,
+      tagCounts,
+    };
   }
 }
 

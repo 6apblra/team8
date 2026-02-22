@@ -256,4 +256,30 @@ export const api = {
   async heartbeat() {
     return apiRequest("POST", "/api/heartbeat");
   },
+
+  // Reviews
+  async createReview(data: {
+    reviewedUserId: string;
+    matchId?: string;
+    rating: number;
+    tags?: string[];
+    comment?: string;
+  }) {
+    return apiRequest("POST", "/api/reviews", data);
+  },
+
+  async getReviews(userId: string) {
+    return apiRequest<{ reviews: any[]; hasReviewed: boolean }>(
+      "GET",
+      `/api/reviews/${userId}`,
+    );
+  },
+
+  async getReviewStats(userId: string) {
+    return apiRequest<{
+      averageRating: number;
+      totalReviews: number;
+      tagCounts: Record<string, number>;
+    }>("GET", `/api/reviews/stats/${userId}`);
+  },
 };

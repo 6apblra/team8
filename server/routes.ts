@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { games } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { games, users } from "@shared/schema";
 import bcrypt from "bcrypt";
 import {
   addMatchToConnections,
@@ -11,6 +12,7 @@ import {
   broadcastPresenceChange,
   updatePresence,
   sendToUser,
+  broadcastReaction,
 } from "./websocket";
 import { avatarUpload, getUploadUrl } from "./upload";
 import { notifyNewMatch, notifyNewMessage, notifySuperLike } from "./push-notifications";
@@ -38,6 +40,7 @@ import {
   pushTokenSchema,
   feedFiltersSchema,
   availableNowSchema,
+  createReviewSchema,
 } from "@shared/validation";
 
 const SALT_ROUNDS = 10;
@@ -936,6 +939,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       log.error({ err: error }, "Activity status error");
       return res.status(500).json({ error: "Failed to get activity status" });
+    }
+  });
+
+  // ── Boost ──────────────────────────────────────────────────────────────────
+  app.post("/api/boost", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user?.isPremium) {
+        return res.status(403).json({ error: "Premium required" });
+      }
+      const durationMinutes = Number(req.body.durationMinutes) || 30;
+      const boostedUntil = await storage.setBoost(userId, durationMinutes);
+      return res.json({ boostedUntil });
+    } catch (error) {
+      log.error({ err: error }, "Boost error");
+      return res.status(500).json({ error: "Failed to activate boost" });
+    }
+  });
+
+  app.delete("/api/boost", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      await storage.clearBoost(userId);
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to clear boost" });
+    }
+  });
+
+  app.get("/api/boost-status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const profile = await storage.getProfile(userId);
+      const now = new Date();
+      const isBoosted = !!(profile?.boostedUntil && profile.boostedUntil > now);
+      return res.json({ isBoosted, boostedUntil: profile?.boostedUntil || null });
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to get boost status" });
+    }
+  });
+
+  // ── Reactions ───────────────────────────────────────────────────────────────
+  app.post("/api/messages/:messageId/react", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { messageId } = req.params;
+      const { emoji } = req.body;
+      if (!emoji) return res.status(400).json({ error: "emoji required" });
+
+      const message = await storage.getMessageById(messageId);
+      if (!message) return res.status(404).json({ error: "Message not found" });
+
+      const match = await storage.getMatch(message.matchId);
+      if (!match || (match.user1Id !== userId && match.user2Id !== userId)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const action = await storage.toggleReaction(messageId, userId, emoji);
+      const reactionsMap = await storage.getMessageReactions([messageId]);
+      const msgReactions = reactionsMap[messageId] || [];
+
+      broadcastReaction(message.matchId, messageId, emoji, userId, action, msgReactions);
+
+      return res.json({ action, reactions: msgReactions });
+    } catch (error) {
+      log.error({ err: error }, "Reaction error");
+      return res.status(500).json({ error: "Failed to toggle reaction" });
+    }
+  });
+
+  // ── Reviews ─────────────────────────────────────────────────────────────────
+  app.post(
+    "/api/reviews",
+    requireAuth,
+    validateRequest(createReviewSchema),
+    async (req, res) => {
+      try {
+        const reviewerId = req.session.userId!;
+        const { reviewedUserId, matchId, rating, tags, comment } = req.body;
+
+        if (reviewerId === reviewedUserId) {
+          return res.status(400).json({ error: "Cannot review yourself" });
+        }
+
+        // Verify they have a match together
+        const match = matchId ? await storage.getMatch(matchId) : null;
+        if (matchId) {
+          if (!match || (match.user1Id !== reviewerId && match.user2Id !== reviewerId)) {
+            return res.status(403).json({ error: "No match found with this user" });
+          }
+          if (match.user1Id !== reviewedUserId && match.user2Id !== reviewedUserId) {
+            return res.status(403).json({ error: "Match does not involve reviewed user" });
+          }
+        }
+
+        const alreadyReviewed = await storage.hasReviewed(reviewerId, reviewedUserId);
+        if (alreadyReviewed) {
+          return res.status(409).json({ error: "You have already reviewed this user" });
+        }
+
+        const review = await storage.createReview({
+          reviewerId,
+          reviewedUserId,
+          matchId: matchId || null,
+          rating,
+          tags: tags || [],
+          comment: comment || null,
+        });
+
+        return res.status(201).json(review);
+      } catch (error) {
+        log.error({ err: error }, "Create review error");
+        return res.status(500).json({ error: "Failed to create review" });
+      }
+    },
+  );
+
+  app.get("/api/reviews/stats/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const stats = await storage.getReviewStats(userId);
+      return res.json(stats);
+    } catch (error) {
+      log.error({ err: error }, "Get review stats error");
+      return res.status(500).json({ error: "Failed to get review stats" });
+    }
+  });
+
+  app.get("/api/reviews/:userId", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUserId = req.session.userId!;
+      const reviewsList = await storage.getReviewsForUser(userId);
+      const hasReviewed = await storage.hasReviewed(currentUserId, userId);
+      return res.json({ reviews: reviewsList, hasReviewed });
+    } catch (error) {
+      log.error({ err: error }, "Get reviews error");
+      return res.status(500).json({ error: "Failed to get reviews" });
     }
   });
 
