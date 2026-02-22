@@ -914,6 +914,38 @@ export default function DiscoverScreen() {
     }
   };
 
+  const openProfileSheet = useCallback((candidate: FeedCandidate) => {
+    setProfileSheet({
+      userId: candidate.userId,
+      nickname: candidate.nickname,
+      avatarUrl: candidate.avatarUrl,
+      age: candidate.age,
+      bio: candidate.bio,
+      region: candidate.region,
+      languages: candidate.languages,
+      micEnabled: candidate.micEnabled,
+      discordTag: candidate.discordTag,
+      steamId: candidate.steamId,
+      riotId: candidate.riotId,
+      superLikedMe: candidate.superLikedMe,
+      isOnline: candidate.isOnline,
+      isAvailableNow: candidate.isAvailableNow,
+      userGames: candidate.userGames,
+      availability: candidate.availability,
+    });
+  }, []);
+
+  const handleMatchSendMessage = useCallback(() => {
+    if (!matchOverlayData) return;
+    setMatchOverlayData(null);
+    navigation.navigate("Chat", {
+      matchId: matchOverlayData.matchId,
+      nickname: matchOverlayData.matchedNickname,
+      avatarUrl: matchOverlayData.matchedAvatarUrl ?? null,
+      otherUserId: matchOverlayData.matchedUserId,
+    });
+  }, [matchOverlayData, navigation]);
+
   if (isLoading) {
     return (
       <ThemedView style={[styles.container, styles.centered]}>
@@ -954,38 +986,6 @@ export default function DiscoverScreen() {
 
   const superRemaining = swipeStatus?.superLikesRemaining ?? 1;
   const swipeRemaining = swipeStatus?.remaining ?? "...";
-
-  const openProfileSheet = useCallback((candidate: FeedCandidate) => {
-    setProfileSheet({
-      userId: candidate.userId,
-      nickname: candidate.nickname,
-      avatarUrl: candidate.avatarUrl,
-      age: candidate.age,
-      bio: candidate.bio,
-      region: candidate.region,
-      languages: candidate.languages,
-      micEnabled: candidate.micEnabled,
-      discordTag: candidate.discordTag,
-      steamId: candidate.steamId,
-      riotId: candidate.riotId,
-      superLikedMe: candidate.superLikedMe,
-      isOnline: candidate.isOnline,
-      isAvailableNow: candidate.isAvailableNow,
-      userGames: candidate.userGames,
-      availability: candidate.availability,
-    });
-  }, []);
-
-  const handleMatchSendMessage = useCallback(() => {
-    if (!matchOverlayData) return;
-    setMatchOverlayData(null);
-    navigation.navigate("Chat", {
-      matchId: matchOverlayData.matchId,
-      nickname: matchOverlayData.matchedNickname,
-      avatarUrl: matchOverlayData.matchedAvatarUrl ?? null,
-      otherUserId: matchOverlayData.matchedUserId,
-    });
-  }, [matchOverlayData, navigation]);
 
   return (
     <ThemedView style={styles.container}>
