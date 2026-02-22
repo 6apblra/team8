@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server, IncomingMessage } from "node:http";
-import { storage } from "./storage";
+import { storage, type ReactionSummary } from "./storage";
 import { verifyToken } from "./auth-utils";
 import { log } from "./logger";
 
@@ -296,4 +296,23 @@ export function sendToUser(userId: string, data: any) {
 
 export function getConnectedUserIds(): string[] {
   return Array.from(connections.keys());
+}
+
+export function broadcastReaction(
+  matchId: string,
+  messageId: string,
+  emoji: string,
+  userId: string,
+  action: "added" | "removed",
+  reactions: ReactionSummary[],
+) {
+  broadcast(matchId, {
+    type: "reaction",
+    matchId,
+    messageId,
+    emoji,
+    userId,
+    action,
+    reactions,
+  });
 }

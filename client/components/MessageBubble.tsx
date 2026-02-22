@@ -1,15 +1,24 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
+
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
 
 interface MessageBubbleProps {
   content: string;
   isMine: boolean;
   timestamp?: Date;
-  isFirst?: boolean; // first in a group from same sender
-  isLast?: boolean;  // last in a group from same sender
+  isFirst?: boolean;
+  isLast?: boolean;
+  reactions?: ReactionSummary[];
+  myUserId?: string;
+  onLongPress?: () => void;
 }
 
 export function MessageBubble({
@@ -18,6 +27,9 @@ export function MessageBubble({
   timestamp,
   isFirst = true,
   isLast = true,
+  reactions = [],
+  myUserId,
+  onLongPress,
 }: MessageBubbleProps) {
   const { theme } = useTheme();
 
@@ -52,10 +64,12 @@ export function MessageBubble({
       style={[
         styles.container,
         isMine ? styles.containerMine : styles.containerOther,
-        { marginBottom: isLast ? Spacing.sm : 2 },
+        { marginBottom: reactions.length > 0 ? 16 : isLast ? Spacing.sm : 2 },
       ]}
     >
-      <View
+      <Pressable
+        onLongPress={onLongPress}
+        delayLongPress={350}
         style={[
           styles.bubble,
           isMine
@@ -83,7 +97,35 @@ export function MessageBubble({
             {formatTime(timestamp)}
           </ThemedText>
         )}
-      </View>
+      </Pressable>
+
+      {/* Reaction chips */}
+      {reactions.length > 0 && (
+        <View style={[styles.reactionsRow, isMine ? styles.reactionsRowMine : styles.reactionsRowOther]}>
+          {reactions.map((r) => {
+            const byMe = myUserId ? r.userIds.includes(myUserId) : false;
+            return (
+              <View
+                key={r.emoji}
+                style={[
+                  styles.reactionChip,
+                  {
+                    backgroundColor: byMe ? `${theme.primary}22` : theme.backgroundSecondary,
+                    borderColor: byMe ? `${theme.primary}60` : theme.border,
+                  },
+                ]}
+              >
+                <ThemedText style={styles.reactionEmoji}>{r.emoji}</ThemedText>
+                {r.count > 1 && (
+                  <ThemedText style={[styles.reactionCount, { color: byMe ? theme.primary : theme.textSecondary }]}>
+                    {r.count}
+                  </ThemedText>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -185,6 +227,35 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.55)",
   },
   timeOther: {},
+  reactionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: -8,
+    paddingHorizontal: 4,
+  },
+  reactionsRowMine: {
+    justifyContent: "flex-end",
+  },
+  reactionsRowOther: {
+    justifyContent: "flex-start",
+  },
+  reactionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  reactionEmoji: {
+    fontSize: 14,
+  },
+  reactionCount: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
   dotsRow: {
     flexDirection: "row",
     gap: 5,
