@@ -160,8 +160,11 @@ export default function ChatScreen() {
   useEffect(() => {
     if (fetchedMessages.length > 0) {
       setLocalMessages(fetchedMessages);
+      // REST call already marks as read server-side; also notify via WS
+      wsManager.send({ type: "read", matchId });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", user?.id] });
     }
-  }, [fetchedMessages]);
+  }, [fetchedMessages.length]);
 
   const allMessages = localMessages;
 
@@ -213,6 +216,9 @@ export default function ChatScreen() {
           });
           if (msg.message.senderId !== user?.id) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            // Mark as read immediately since chat is open
+            wsManager.send({ type: "read", matchId });
+            queryClient.invalidateQueries({ queryKey: ["/api/matches", user?.id] });
           }
           break;
         case "typing":
@@ -226,7 +232,7 @@ export default function ChatScreen() {
           break;
       }
     },
-    [matchId, user?.id],
+    [matchId, user?.id, queryClient],
   );
 
   useWebSocketMessages(handleWebSocketMessage);

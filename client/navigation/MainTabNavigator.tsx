@@ -8,6 +8,7 @@ import MatchesStackNavigator from "@/navigation/MatchesStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useUnreadCount } from "@/lib/use-unread-count";
 
 export type MainTabParamList = {
   DiscoverTab: undefined;
@@ -20,6 +21,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
   const { t } = useTranslation();
+  const unreadCount = useUnreadCount();
 
   return (
     <View style={{ flex: 1 }}>
@@ -68,6 +70,8 @@ export default function MainTabNavigator() {
             tabBarIcon: ({ color, size }) => (
               <Feather name="users" size={size} color={color} />
             ),
+            tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : undefined,
+            tabBarBadgeStyle: { backgroundColor: theme.danger, fontSize: 10, minWidth: 18, height: 18, lineHeight: 18 },
           }}
         />
         <Tab.Screen

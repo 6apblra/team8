@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   SectionList,
   StyleSheet,
@@ -12,10 +12,11 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useAuth } from "@/lib/auth-context";
+import { useWebSocketMessages } from "@/lib/websocket";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { MatchCard } from "@/components/MatchCard";
@@ -90,6 +91,8 @@ export default function MatchesScreen() {
   const { theme } = useTheme();
   const { t } = useTranslation();
 
+  const queryClient = useQueryClient();
+
   const {
     data: matches = [],
     isLoading,
@@ -100,6 +103,17 @@ export default function MatchesScreen() {
     enabled: !!user?.id,
     refetchInterval: 10000,
   });
+
+  // Real-time: invalidate matches list on new message or read receipt
+  const handleWsMessage = useCallback(
+    (msg: any) => {
+      if (msg.type === "new_message" || msg.type === "messages_read") {
+        queryClient.invalidateQueries({ queryKey: ["/api/matches", user?.id] });
+      }
+    },
+    [queryClient, user?.id],
+  );
+  useWebSocketMessages(handleWsMessage);
 
   const handleMatchPress = (match: MatchData) => {
     navigation.navigate("Chat", {
