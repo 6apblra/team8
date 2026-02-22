@@ -784,6 +784,13 @@ export default function DiscoverScreen() {
         Alert.alert(
           t("discover.superLikeLimitTitle"),
           t("discover.superLikeLimitMessage"),
+          [
+            { text: t("common.cancel"), style: "cancel" },
+            {
+              text: t("discover.buySuperLikes"),
+              onPress: () => navigation.navigate("Store"),
+            },
+          ],
         );
         return;
       }

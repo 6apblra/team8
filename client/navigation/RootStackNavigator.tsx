@@ -9,6 +9,7 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import EditGamesScreen from "@/screens/EditGamesScreen";
 import FiltersScreen from "@/screens/FiltersScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import StoreScreen from "@/screens/StoreScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth, AuthProvider } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   EditGames: undefined;
   Filters: undefined;
   Settings: undefined;
+  Store: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -112,6 +114,14 @@ function RootNavigator() {
             component={SettingsScreen}
             options={{
               headerTitle: t("navigation.settings"),
+              presentation: "modal",
+            }}
+          />
+          <Stack.Screen
+            name="Store"
+            component={StoreScreen}
+            options={{
+              headerTitle: t("navigation.store"),
               presentation: "modal",
             }}
           />
