@@ -1,5 +1,6 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -16,6 +17,7 @@ interface MessageBubbleProps {
   timestamp?: Date;
   isFirst?: boolean;
   isLast?: boolean;
+  isRead?: boolean;
   reactions?: ReactionSummary[];
   myUserId?: string;
   onLongPress?: () => void;
@@ -27,6 +29,7 @@ export function MessageBubble({
   timestamp,
   isFirst = true,
   isLast = true,
+  isRead = false,
   reactions = [],
   myUserId,
   onLongPress,
@@ -86,16 +89,35 @@ export function MessageBubble({
           {content}
         </ThemedText>
 
-        {/* Timestamp inside bubble, bottom-right */}
+        {/* Timestamp + read receipt, bottom-right */}
         {timestamp && isLast && (
-          <ThemedText
-            style={[
-              styles.time,
-              isMine ? styles.timeMine : [styles.timeOther, { color: theme.textSecondary }],
-            ]}
-          >
-            {formatTime(timestamp)}
-          </ThemedText>
+          <View style={styles.timeRow}>
+            <ThemedText
+              style={[
+                styles.time,
+                isMine ? styles.timeMine : [styles.timeOther, { color: theme.textSecondary }],
+              ]}
+            >
+              {formatTime(timestamp)}
+            </ThemedText>
+            {isMine && (
+              <View style={styles.receiptWrap}>
+                <Feather
+                  name="check"
+                  size={11}
+                  color={isRead ? theme.primary : "rgba(255,255,255,0.55)"}
+                />
+                {isRead && (
+                  <Feather
+                    name="check"
+                    size={11}
+                    color={theme.primary}
+                    style={{ marginLeft: -6 }}
+                  />
+                )}
+              </View>
+            )}
+          </View>
         )}
       </Pressable>
 
@@ -218,15 +240,25 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   contentOther: {},
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    gap: 3,
+  },
   time: {
     fontSize: 10,
-    marginTop: 4,
     textAlign: "right",
   },
   timeMine: {
     color: "rgba(255,255,255,0.55)",
   },
   timeOther: {},
+  receiptWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   reactionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",

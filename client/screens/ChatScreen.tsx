@@ -221,6 +221,16 @@ export default function ChatScreen() {
             queryClient.invalidateQueries({ queryKey: ["/api/matches", user?.id] });
           }
           break;
+        case "messages_read":
+          // Other user read our messages — mark all our sent messages as read
+          if (msg.readBy !== user?.id) {
+            setLocalMessages((prev) =>
+              prev.map((m) =>
+                m.senderId === user?.id ? { ...m, isRead: true } : m,
+              ),
+            );
+          }
+          break;
         case "typing":
           if (msg.userId !== user?.id) {
             setIsTyping(true);
@@ -442,6 +452,7 @@ export default function ChatScreen() {
                 timestamp={new Date(item.message.createdAt)}
                 isFirst={item.isFirst}
                 isLast={item.isLast}
+                isRead={item.message.isRead}
               />
             );
           }}
