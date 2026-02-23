@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -43,6 +43,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { FILTERS_KEY, SavedFilters } from "@/screens/FiltersScreen";
 import { ProfileBottomSheet, ProfileSheetData } from "@/components/ProfileBottomSheet";
+import { calcCompatibility } from "@/lib/compatibility";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -709,6 +710,41 @@ export default function DiscoverScreen() {
     enabled: !!user?.id,
   });
 
+  // My own profile/games/availability for compatibility scoring
+  const { data: myProfile } = useQuery<{
+    region: string;
+    languages?: string[];
+  }>({
+    queryKey: ["/api/profile"],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const { data: myGames = [] } = useQuery<{ gameId: string; playstyle?: string | null }[]>({
+    queryKey: [`/api/user-games/${user?.id}`],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const { data: myAvailability = [] } = useQuery<{ dayOfWeek: number }[]>({
+    queryKey: [`/api/availability/${user?.id}`],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  // Pre-compute compatibility scores for all candidates
+  const compatScores = useMemo(() => {
+    if (!myProfile) return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const c of candidates) {
+      map.set(
+        c.userId,
+        calcCompatibility(myProfile, myGames, myAvailability, c),
+      );
+    }
+    return map;
+  }, [candidates, myProfile, myGames, myAvailability]);
+
   const swipeMutation = useMutation<
     { match?: { id: string; user1Id: string; user2Id: string } | null },
     Error,
@@ -1011,6 +1047,7 @@ export default function DiscoverScreen() {
         onClose={() => setProfileSheet(null)}
         onLike={profileSheet ? () => { setProfileSheet(null); handleButtonSwipe("right"); } : undefined}
         onSuperLike={profileSheet ? () => { setProfileSheet(null); handleButtonSwipe("up"); } : undefined}
+        compatibilityScore={profileSheet ? compatScores.get(profileSheet.userId) : undefined}
       />
       <View style={[styles.content, { paddingTop: headerHeight + Spacing.sm }]}>
 
@@ -1092,6 +1129,7 @@ export default function DiscoverScreen() {
                   isAvailableNow={currentCandidate.isAvailableNow}
                   superLikedMe={currentCandidate.superLikedMe}
                   onPressInfo={() => openProfileSheet(currentCandidate)}
+                  compatibilityScore={compatScores.get(currentCandidate.userId)}
                 />
               </Animated.View>
             </GestureDetector>

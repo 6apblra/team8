@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
+import { compatibilityColor } from "@/lib/compatibility";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
@@ -46,6 +47,7 @@ interface SwipeCardProps {
   onPressInfo?: () => void;
   width?: number;
   height?: number;
+  compatibilityScore?: number;
 }
 
 const AVATAR_PLACEHOLDERS = [
@@ -66,6 +68,7 @@ export function SwipeCard({
   onPressInfo,
   width,
   height,
+  compatibilityScore,
 }: SwipeCardProps) {
   const { theme } = useTheme();
 
@@ -118,6 +121,21 @@ export function SwipeCard({
         <View style={styles.superLikedBanner}>
           <Feather name="star" size={13} color="#FFD700" />
           <ThemedText style={styles.superLikedText}>Super Liked you</ThemedText>
+        </View>
+      )}
+
+      {/* Compatibility badge — top left */}
+      {compatibilityScore !== undefined && (
+        <View style={[
+          styles.compatBadge,
+          {
+            borderColor: `${compatibilityColor(compatibilityScore)}55`,
+            backgroundColor: `${compatibilityColor(compatibilityScore)}18`,
+          },
+        ]}>
+          <ThemedText style={[styles.compatText, { color: compatibilityColor(compatibilityScore) }]}>
+            {compatibilityScore}% match
+          </ThemedText>
         </View>
       )}
 
@@ -240,6 +258,24 @@ const styles = StyleSheet.create({
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 16,
+  },
+  compatBadge: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    backgroundColor: "rgba(10,14,26,0.72)",
+    zIndex: 10,
+  },
+  compatText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   superLikedBanner: {
     position: "absolute",

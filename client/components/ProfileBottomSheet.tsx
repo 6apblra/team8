@@ -25,6 +25,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { BorderRadius, Spacing, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, DAYS_OF_WEEK } from "@/lib/game-data";
 import { apiRequest } from "@/lib/api-client";
+import { compatibilityColor } from "@/lib/compatibility";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -61,6 +62,7 @@ interface ProfileBottomSheetProps {
   onClose: () => void;
   onLike?: () => void;
   onSuperLike?: () => void;
+  compatibilityScore?: number;
 }
 
 function SectionHeader({ title, icon }: { title: string; icon: keyof typeof Feather.glyphMap }) {
@@ -110,6 +112,7 @@ export function ProfileBottomSheet({
   onClose,
   onLike,
   onSuperLike,
+  compatibilityScore,
 }: ProfileBottomSheetProps) {
   const { theme } = useTheme();
   const { t } = useTranslation();
@@ -212,6 +215,21 @@ export function ProfileBottomSheet({
                   </ThemedText>
                   <ThemedText style={[sheetStyles.ratingCount, { color: theme.textSecondary }]}>
                     ({reviewStats.totalReviews})
+                  </ThemedText>
+                </View>
+              )}
+
+              {compatibilityScore !== undefined && (
+                <View style={[
+                  sheetStyles.compatBadge,
+                  {
+                    backgroundColor: `${compatibilityColor(compatibilityScore)}18`,
+                    borderColor: `${compatibilityColor(compatibilityScore)}55`,
+                  },
+                ]}>
+                  <Feather name="zap" size={11} color={compatibilityColor(compatibilityScore)} />
+                  <ThemedText style={[sheetStyles.compatBadgeText, { color: compatibilityColor(compatibilityScore) }]}>
+                    {compatibilityScore}% совместимость
                   </ThemedText>
                 </View>
               )}
@@ -544,6 +562,21 @@ const sheetStyles = StyleSheet.create({
   age: {
     fontSize: 18,
     fontWeight: "400",
+  },
+  compatBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  compatBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   superBadge: {
     flexDirection: "row",
