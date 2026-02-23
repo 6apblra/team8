@@ -522,9 +522,26 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
 
   const isLoading = activateMutation.isPending || deactivateMutation.isPending;
 
+  const handleQuickToggle = () => {
+    if (isLoading) return;
+    if (isActive) {
+      deactivateMutation.mutate();
+    } else {
+      activateMutation.mutate(60);
+    }
+  };
+
   return (
     <>
-      <Pressable onPress={() => setShowModal(true)} style={styles.nowPill}>
+      <Pressable
+        onPress={handleQuickToggle}
+        onLongPress={() => setShowModal(true)}
+        delayLongPress={400}
+        style={[
+          styles.nowPill,
+          isActive && { borderColor: `${theme.success}55`, backgroundColor: `${theme.success}12` },
+        ]}
+      >
         {/* glow dot */}
         <View style={styles.nowDotWrap}>
           {isActive && (
@@ -549,8 +566,11 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
             { color: isActive ? theme.success : theme.textSecondary },
           ]}
         >
-          {isActive ? (countdown || "Active") : t("discover.playingNow") }
+          {isActive ? (countdown || t("discover.playingNowActive")) : t("discover.playingNow")}
         </ThemedText>
+        {isActive && (
+          <Feather name="x" size={12} color={theme.success} style={{ marginLeft: 2 }} />
+        )}
       </Pressable>
 
       <Modal visible={showModal} transparent animationType="fade">

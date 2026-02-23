@@ -43,6 +43,8 @@ interface MatchData {
     createdAt: string;
   };
   unreadCount: number;
+  isOnline?: boolean;
+  isAvailableNow?: boolean;
 }
 
 const AVATAR_PLACEHOLDERS = [
@@ -234,6 +236,8 @@ export default function MatchesScreen() {
                   : null
             }
             unreadCount={item.unreadCount}
+            isOnline={item.isOnline}
+            isAvailableNow={item.isAvailableNow}
             onPress={() => handleMatchPress(item)}
           />
         )}

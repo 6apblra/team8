@@ -752,11 +752,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             (m) => !m.isRead && m.senderId !== userId,
           ).length;
 
+          const isOnline = profile?.lastSeenAt
+            ? Date.now() - new Date(profile.lastSeenAt).getTime() < 5 * 60 * 1000
+            : false;
+          const isAvailableNow = !!(
+            profile?.isAvailableNow &&
+            profile?.availableUntil &&
+            new Date(profile.availableUntil) > new Date()
+          );
+
           return {
             ...match,
             otherUser: { profile, userGames },
             lastMessage,
             unreadCount,
+            isOnline,
+            isAvailableNow,
           };
         }),
       );

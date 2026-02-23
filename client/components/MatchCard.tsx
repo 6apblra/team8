@@ -17,6 +17,8 @@ interface MatchCardProps {
   lastMessage?: string;
   timestamp?: Date | null;
   unreadCount?: number;
+  isOnline?: boolean;
+  isAvailableNow?: boolean;
   onPress: () => void;
 }
 
@@ -33,6 +35,8 @@ export function MatchCard({
   lastMessage,
   timestamp,
   unreadCount = 0,
+  isOnline = false,
+  isAvailableNow = false,
   onPress,
 }: MatchCardProps) {
   const { theme } = useTheme();
@@ -95,6 +99,14 @@ export function MatchCard({
           </View>
         ) : (
           <Image source={{ uri: avatar }} style={[styles.avatar, styles.avatarNoRing]} contentFit="cover" />
+        )}
+        {/* Online / available dot */}
+        {(isAvailableNow || isOnline) && (
+          <View style={[
+            styles.onlineDot,
+            { backgroundColor: isAvailableNow ? "#B857FF" : "#00FF88",
+              borderColor: theme.backgroundRoot },
+          ]} />
         )}
       </View>
 
@@ -170,6 +182,16 @@ const styles = StyleSheet.create({
   avatarWrap: {
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  onlineDot: {
+    position: "absolute",
+    bottom: 1,
+    right: 1,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    borderWidth: 2,
   },
   avatarRing: {
     width: 64,
