@@ -9,11 +9,16 @@ import {
 import { useHeaderHeight } from "@react-navigation/elements";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { apiRequest } from "@/lib/api-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
+
+const BOOST_COLOR = "#B857FF";
 
 interface SuperLikePack {
   id: string;
@@ -97,11 +102,50 @@ function PackCard({
   );
 }
 
+const BOOST_DURATIONS = [
+  { label: "30m", minutes: 30, price: "$0.99" },
+  { label: "1h",  minutes: 60, price: "$1.49", badge: "popular" },
+  { label: "3h",  minutes: 180, price: "$2.99", badge: "best_value" },
+];
+
 export default function StoreScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [purchasing, setPurchasing] = useState<string | null>(null);
+
+  const { data: boostStatus } = useQuery<{ isBoosted: boolean; boostedUntil: string | null }>({
+    queryKey: ["/api/boost-status"],
+  });
+
+  const activateBoostMutation = useMutation({
+    mutationFn: (minutes: number) => apiRequest("POST", "/api/boost", { durationMinutes: minutes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const isCurrentlyBoosted = !!(
+    boostStatus?.isBoosted &&
+    boostStatus.boostedUntil &&
+    new Date(boostStatus.boostedUntil) > new Date()
+  );
+
+  const handleBoost = (minutes: number, price: string) => {
+    Alert.alert(
+      t("store.boostTitle"),
+      t("store.boostConfirmMessage", { price }),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("store.confirm"),
+          onPress: () => activateBoostMutation.mutate(minutes),
+        },
+      ],
+    );
+  };
 
   const handleBuy = (pack: SuperLikePack) => {
     setPurchasing(pack.id);
@@ -164,6 +208,61 @@ export default function StoreScreen() {
               t={t}
             />
           ))}
+        </View>
+
+        {/* Boost section */}
+        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+          {t("store.boostPacksTitle")}
+        </ThemedText>
+
+        {isCurrentlyBoosted && (
+          <View style={[styles.boostActiveCard, { backgroundColor: `${BOOST_COLOR}15`, borderColor: `${BOOST_COLOR}50` }]}>
+            <Feather name="zap" size={16} color={BOOST_COLOR} />
+            <ThemedText style={[styles.boostActiveText, { color: BOOST_COLOR }]}>
+              {t("store.boostActiveUntil", {
+                time: new Date(boostStatus!.boostedUntil!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              })}
+            </ThemedText>
+          </View>
+        )}
+
+        <View style={styles.boostGrid}>
+          {BOOST_DURATIONS.map((d) => {
+            const isPopular   = d.badge === "popular";
+            const isBest      = d.badge === "best_value";
+            return (
+              <Pressable
+                key={d.minutes}
+                onPress={() => handleBoost(d.minutes, d.price)}
+                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1, flex: 1 }]}
+              >
+                <View style={[
+                  styles.boostCard,
+                  {
+                    backgroundColor: isPopular || isBest ? `${BOOST_COLOR}12` : theme.backgroundDefault,
+                    borderColor: isPopular || isBest ? BOOST_COLOR : theme.border,
+                    borderWidth: isPopular || isBest ? 2 : 1,
+                  },
+                ]}>
+                  {d.badge && (
+                    <View style={[styles.packBadge, { backgroundColor: isBest ? theme.warning : BOOST_COLOR }]}>
+                      <ThemedText style={styles.packBadgeText}>{t(`store.${d.badge}`)}</ThemedText>
+                    </View>
+                  )}
+                  <ThemedText style={{ fontSize: 26 }}>🚀</ThemedText>
+                  <ThemedText style={[styles.boostDuration, { color: BOOST_COLOR }]}>{d.label}</ThemedText>
+                  <LinearGradient
+                    colors={[BOOST_COLOR, theme.primary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.priceButton}
+                  >
+                    <ThemedText style={styles.priceText}>{d.price}</ThemedText>
+                  </LinearGradient>
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Premium banner */}
@@ -293,6 +392,34 @@ const styles = StyleSheet.create({
   premiumPriceWrap: { alignItems: "flex-end" },
   premiumPrice: { fontSize: 26, fontWeight: "800", color: "#fff" },
   premiumPeriod: { fontSize: 12, color: "rgba(255,255,255,0.75)" },
+  boostActiveCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: -Spacing.xs,
+  },
+  boostActiveText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  boostGrid: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  boostCard: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    overflow: "hidden",
+  },
+  boostDuration: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
   disclaimer: {
     fontSize: 11,
     textAlign: "center",

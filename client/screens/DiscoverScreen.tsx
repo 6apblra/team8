@@ -434,6 +434,104 @@ const matchStyles = StyleSheet.create({
   },
 });
 
+// ─── Boost Widget ─────────────────────────────────────────────────────────────
+
+function BoostWidget({ theme, t }: { theme: any; t: any }) {
+  const queryClient = useQueryClient();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [countdown, setCountdown] = useState("");
+
+  const { data: boostStatus } = useQuery<{ isBoosted: boolean; boostedUntil: string | null }>({
+    queryKey: ["/api/boost-status"],
+    refetchInterval: 30000,
+  });
+
+  const isActive = !!(
+    boostStatus?.isBoosted &&
+    boostStatus.boostedUntil &&
+    new Date(boostStatus.boostedUntil) > new Date()
+  );
+
+  // countdown timer
+  useEffect(() => {
+    if (!isActive || !boostStatus?.boostedUntil) { setCountdown(""); return; }
+    const update = () => {
+      const diff = new Date(boostStatus.boostedUntil!).getTime() - Date.now();
+      if (diff <= 0) { setCountdown(""); return; }
+      const m = Math.ceil(diff / 60000);
+      setCountdown(`${m}m`);
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, [isActive, boostStatus?.boostedUntil]);
+
+  // glow pulse
+  const glowOpacity = useSharedValue(0);
+  const glowScale  = useSharedValue(1);
+  useEffect(() => {
+    if (isActive) {
+      glowOpacity.value = withRepeat(withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.1, { duration: 800 })), -1, true);
+      glowScale.value   = withRepeat(withSequence(withTiming(1.6, { duration: 800 }), withTiming(1, { duration: 800 })), -1, true);
+    } else {
+      glowOpacity.value = withTiming(0, { duration: 300 });
+      glowScale.value   = withTiming(1, { duration: 300 });
+    }
+  }, [isActive]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }));
+
+  const activateMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/boost", { durationMinutes: 30 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/boost"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] }),
+  });
+
+  const handlePress = () => {
+    if (activateMutation.isPending || deactivateMutation.isPending) return;
+    if (isActive) {
+      deactivateMutation.mutate();
+    } else {
+      activateMutation.mutate();
+    }
+  };
+
+  const BOOST_COLOR = "#B857FF";
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onLongPress={() => navigation.navigate("Store")}
+      delayLongPress={500}
+      style={[
+        styles.nowPill,
+        isActive && { borderColor: `${BOOST_COLOR}55`, backgroundColor: `${BOOST_COLOR}12` },
+      ]}
+    >
+      <View style={styles.nowDotWrap}>
+        {isActive && (
+          <Animated.View style={[styles.nowGlow, { backgroundColor: BOOST_COLOR }, glowStyle]} />
+        )}
+        <View style={[styles.nowDot, { backgroundColor: isActive ? BOOST_COLOR : theme.textSecondary }]} />
+      </View>
+      <ThemedText style={[styles.nowText, { color: isActive ? BOOST_COLOR : theme.textSecondary }]}>
+        {isActive ? (countdown || t("discover.boostActive")) : t("discover.boost")}
+      </ThemedText>
+      {isActive && <Feather name="x" size={12} color={BOOST_COLOR} style={{ marginLeft: 2 }} />}
+    </Pressable>
+  );
+}
+
 // ─── Playing Now Widget ───────────────────────────────────────────────────────
 
 const DURATIONS = [
@@ -1096,6 +1194,7 @@ export default function DiscoverScreen() {
               {String(superRemaining)}
             </ThemedText>
           </View>
+          <BoostWidget theme={theme} t={t} />
           <PlayingNowWidget theme={theme} t={t} />
         </View>
 

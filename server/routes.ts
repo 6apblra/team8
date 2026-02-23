@@ -957,10 +957,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/boost", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
-      if (!user?.isPremium) {
-        return res.status(403).json({ error: "Premium required" });
-      }
       const durationMinutes = Number(req.body.durationMinutes) || 30;
       const boostedUntil = await storage.setBoost(userId, durationMinutes);
       return res.json({ boostedUntil });
