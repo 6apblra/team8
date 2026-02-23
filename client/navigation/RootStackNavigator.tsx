@@ -15,6 +15,7 @@ import { useAuth, AuthProvider } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { ToastProvider } from "@/lib/toast-context";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -135,7 +136,9 @@ export default function RootStackNavigator() {
   return (
     <SettingsProvider>
       <AuthProvider>
-        <RootNavigator />
+        <ToastProvider>
+          <RootNavigator />
+        </ToastProvider>
       </AuthProvider>
     </SettingsProvider>
   );
