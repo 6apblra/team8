@@ -1,5 +1,5 @@
-import React from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import React, { useRef, useEffect } from "react";
+import { View, StyleSheet, Pressable, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -21,6 +21,53 @@ interface MessageBubbleProps {
   reactions?: ReactionSummary[];
   myUserId?: string;
   onLongPress?: () => void;
+}
+
+function ReadReceipt({ isRead, theme }: { isRead: boolean; theme: any }) {
+  const prevIsReadRef = useRef(isRead);
+  const secondCheckOpacity = useRef(new Animated.Value(isRead ? 1 : 0)).current;
+  const secondCheckScale = useRef(new Animated.Value(isRead ? 1 : 0.5)).current;
+
+  useEffect(() => {
+    if (!prevIsReadRef.current && isRead) {
+      Animated.parallel([
+        Animated.timing(secondCheckOpacity, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.spring(secondCheckScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (prevIsReadRef.current && !isRead) {
+      secondCheckOpacity.setValue(0);
+      secondCheckScale.setValue(0.5);
+    }
+    prevIsReadRef.current = isRead;
+  }, [isRead]);
+
+  return (
+    <View style={styles.receiptWrap}>
+      <Feather
+        name="check"
+        size={11}
+        color={isRead ? theme.primary : "rgba(255,255,255,0.55)"}
+      />
+      <Animated.View
+        style={{
+          opacity: secondCheckOpacity,
+          transform: [{ scale: secondCheckScale }],
+          marginLeft: -6,
+        }}
+      >
+        <Feather name="check" size={11} color={theme.primary} />
+      </Animated.View>
+    </View>
+  );
 }
 
 export function MessageBubble({
@@ -100,23 +147,7 @@ export function MessageBubble({
             >
               {formatTime(timestamp)}
             </ThemedText>
-            {isMine && (
-              <View style={styles.receiptWrap}>
-                <Feather
-                  name="check"
-                  size={11}
-                  color={isRead ? theme.primary : "rgba(255,255,255,0.55)"}
-                />
-                {isRead && (
-                  <Feather
-                    name="check"
-                    size={11}
-                    color={theme.primary}
-                    style={{ marginLeft: -6 }}
-                  />
-                )}
-              </View>
-            )}
+            {isMine && <ReadReceipt isRead={isRead} theme={theme} />}
           </View>
         )}
       </Pressable>

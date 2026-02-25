@@ -35,6 +35,7 @@ import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
+import { useToast } from "@/lib/toast-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { SwipeCard } from "@/components/SwipeCard";
@@ -438,6 +439,7 @@ const matchStyles = StyleSheet.create({
 
 function BoostWidget({ theme, t }: { theme: any; t: any }) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [countdown, setCountdown] = useState("");
 
@@ -462,7 +464,7 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
       setCountdown(`${m}m`);
     };
     update();
-    const id = setInterval(update, 30000);
+    const id = setInterval(update, 60000);
     return () => clearInterval(id);
   }, [isActive, boostStatus?.boostedUntil]);
 
@@ -490,11 +492,25 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
       queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("discover.boostErrorTitle"),
+        body: t("discover.boostErrorBody"),
+      });
+    },
   });
 
   const deactivateMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", "/api/boost"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] }),
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("discover.boostErrorTitle"),
+        body: t("discover.boostErrorBody"),
+      });
+    },
   });
 
   const handlePress = () => {
@@ -536,14 +552,16 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
 
 const DURATIONS = [
   { label: "30m", minutes: 30 },
-  { label: "1h", minutes: 60 },
-  { label: "2h", minutes: 120 },
-  { label: "4h", minutes: 240 },
+  { label: "1h",  minutes: 60 },
+  { label: "1.5h", minutes: 90 },
+  { label: "2h",  minutes: 120 },
+  { label: "3h",  minutes: 180 },
 ];
 
 function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [showModal, setShowModal] = useState(false);
   const [countdown, setCountdown] = useState("");
 
@@ -562,12 +580,13 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
     const update = () => {
       const diff = new Date(profile.availableUntil!).getTime() - Date.now();
       if (diff <= 0) { setCountdown(""); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
+      const totalMinutes = Math.ceil(diff / 60000);
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
       setCountdown(h > 0 ? `${h}h ${m}m` : `${m}m`);
     };
     update();
-    const id = setInterval(update, 30000);
+    const id = setInterval(update, 60000);
     return () => clearInterval(id);
   }, [isActive, profile?.availableUntil]);
 
@@ -607,6 +626,13 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       setShowModal(false);
     },
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("discover.playingNowErrorTitle"),
+        body: t("discover.playingNowErrorBody"),
+      });
+    },
   });
 
   const deactivateMutation = useMutation({
@@ -615,6 +641,13 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       setShowModal(false);
+    },
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("discover.playingNowErrorTitle"),
+        body: t("discover.playingNowErrorBody"),
+      });
     },
   });
 
@@ -1444,12 +1477,13 @@ const styles = StyleSheet.create({
   },
   durationGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },
   durationBtn: {
-    flex: 1,
+    width: "30%",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,

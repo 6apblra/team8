@@ -7,6 +7,8 @@ import {
   ScrollView,
   Switch,
   Dimensions,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -30,6 +32,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
+import { useToast } from "@/lib/toast-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { GameBadge } from "@/components/GameBadge";
@@ -42,6 +45,14 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 const { width: W } = Dimensions.get("window");
 const BANNER_HEIGHT = 160;
 const AVATAR_SIZE = 96;
+
+const PLAYING_NOW_DURATIONS = [
+  { label: "30m", minutes: 30 },
+  { label: "1h",  minutes: 60 },
+  { label: "1.5h", minutes: 90 },
+  { label: "2h",  minutes: 120 },
+  { label: "3h",  minutes: 180 },
+];
 
 interface UserGame {
   gameId: string;
@@ -244,9 +255,11 @@ export default function ProfileScreen() {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [isAvailableNow, setIsAvailableNow] = useState(false);
   const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
   const [remainingMinutes, setRemainingMinutes] = useState<number | null>(null);
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
 
   // Staggered entrance
   const heroAnim = useSharedValue(0);
@@ -313,8 +326,17 @@ export default function ProfileScreen() {
     onSuccess: (data) => {
       setIsAvailableNow(true);
       setAvailableUntil(new Date(data.availableUntil));
+      setShowDurationPicker(false);
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      setShowDurationPicker(false);
+      showToast({
+        type: "error",
+        title: t("profile.playingNowErrorTitle"),
+        body: t("profile.playingNowErrorBody"),
+      });
     },
   });
 
@@ -325,6 +347,13 @@ export default function ProfileScreen() {
       setAvailableUntil(null);
       queryClient.invalidateQueries({ queryKey: ["/api/profile", user?.id] });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("profile.playingNowErrorTitle"),
+        body: t("profile.playingNowErrorBody"),
+      });
     },
   });
 
@@ -506,9 +535,15 @@ export default function ProfileScreen() {
                 </View>
                 <Switch
                   value={isAvailableNow}
-                  onValueChange={() =>
-                    isAvailableNow ? clearAvailableMutation.mutate() : setAvailableMutation.mutate(60)
-                  }
+                  onValueChange={() => {
+                    if (setAvailableMutation.isPending || clearAvailableMutation.isPending) return;
+                    if (isAvailableNow) {
+                      clearAvailableMutation.mutate();
+                    } else {
+                      setShowDurationPicker(true);
+                    }
+                  }}
+                  disabled={setAvailableMutation.isPending || clearAvailableMutation.isPending}
                   trackColor={{ false: theme.backgroundSecondary, true: `${theme.success}80` }}
                   thumbColor={isAvailableNow ? theme.success : theme.textSecondary}
                 />
@@ -601,6 +636,57 @@ export default function ProfileScreen() {
           </Animated.View>
         </View>
       </ScrollView>
+
+      {/* Duration picker modal */}
+      <Modal
+        visible={showDurationPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDurationPicker(false)}
+      >
+        <Pressable
+          style={styles.pickerOverlay}
+          onPress={() => setShowDurationPicker(false)}
+        >
+          <Pressable style={[styles.pickerSheet, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={[styles.pickerHandle, { backgroundColor: theme.border }]} />
+            <ThemedText style={[styles.pickerTitle, { color: theme.text }]}>
+              {t("profile.setDuration")}
+            </ThemedText>
+            <ThemedText style={[styles.pickerSub, { color: theme.textSecondary }]}>
+              {t("profile.setDurationSubtitle")}
+            </ThemedText>
+            <View style={styles.pickerGrid}>
+              {PLAYING_NOW_DURATIONS.map((d) => (
+                <Pressable
+                  key={d.minutes}
+                  onPress={() => setAvailableMutation.mutate(d.minutes)}
+                  disabled={setAvailableMutation.isPending}
+                  style={({ pressed }) => [
+                    styles.pickerBtn,
+                    {
+                      backgroundColor: `${theme.success}18`,
+                      borderColor: theme.success,
+                      opacity: setAvailableMutation.isPending ? 0.5 : pressed ? 0.75 : 1,
+                    },
+                  ]}
+                >
+                  {setAvailableMutation.isPending ? (
+                    <ActivityIndicator color={theme.success} size="small" />
+                  ) : (
+                    <>
+                      <Feather name="zap" size={18} color={theme.success} />
+                      <ThemedText style={{ color: theme.success, fontWeight: "700", fontSize: 16 }}>
+                        {d.label}
+                      </ThemedText>
+                    </>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -923,5 +1009,52 @@ const styles = StyleSheet.create({
   },
   settingDivider: {
     height: 1,
+  },
+
+  // Duration picker modal
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  pickerSheet: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+    gap: Spacing.lg,
+  },
+  pickerHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  pickerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  pickerSub: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: -Spacing.sm,
+  },
+  pickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  pickerBtn: {
+    width: "30%",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
   },
 });

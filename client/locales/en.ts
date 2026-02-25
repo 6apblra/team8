@@ -98,6 +98,10 @@ export default {
     playingNowSubtitle: "Let others know you're available to play right now",
     timeLeft: "Time left",
     turnOff: "Turn Off",
+    boostErrorTitle: "Boost Error",
+    boostErrorBody: "Could not toggle boost. Please try again.",
+    playingNowErrorTitle: "Status Error",
+    playingNowErrorBody: "Could not update playing status. Please try again.",
   },
 
   matches: {
@@ -125,6 +129,10 @@ export default {
     settings: "Settings",
     signOut: "Sign Out",
     signOutConfirm: "Are you sure you want to sign out?",
+    playingNowErrorTitle: "Status Error",
+    playingNowErrorBody: "Could not update playing status. Please try again.",
+    setDuration: "Set Duration",
+    setDurationSubtitle: "How long are you available to play?",
   },
 
   chat: {
@@ -262,6 +270,8 @@ export default {
     boostConfirmMessage: "Boost your profile for {{price}}? You'll appear first in everyone's feed.",
     boostActiveUntil: "Boost active until {{time}}",
     disclaimer: "Prices shown are for demonstration purposes. Real payments are not processed.",
+    boostErrorTitle: "Boost Failed",
+    boostErrorBody: "Could not activate boost. Please try again.",
   },
 
   gameData: {

@@ -378,6 +378,12 @@ export class DatabaseStorage implements IStorage {
       superLikedMe: boolean;
     })[]
   > {
+    // Load current user's data for compatibility scoring
+    const [myGames, myWindows] = await Promise.all([
+      this.getUserGames(userId),
+      this.getAvailability(userId),
+    ]);
+
     const blockedIds = await this.getBlockedUsers(userId);
     const swipedUsers = await db
       .select({ toUserId: swipes.toUserId })
@@ -514,15 +520,78 @@ export class DatabaseStorage implements IStorage {
     ]);
     const superLikerSet = new Set(superLikerIds);
     const boostSet = new Set(boostedIds);
-    filtered.sort((a, b) => {
-      const aScore = (superLikerSet.has(a.userId) ? 0 : 2) + (boostSet.has(a.userId) ? 0 : 1);
-      const bScore = (superLikerSet.has(b.userId) ? 0 : 2) + (boostSet.has(b.userId) ? 0 : 1);
-      return aScore - bScore;
+
+    // Multi-factor scoring: higher score = shown first
+    const myGameIds = new Set(myGames.map((g) => g.gameId));
+    const myPlaystyles = new Set(
+      myGames.map((g) => g.playstyle).filter((p): p is string => !!p),
+    );
+    const todayDow = new Date().getDay();
+
+    const scored = filtered.map((candidate) => {
+      let score = 0;
+
+      // Social signals (highest priority — preserves existing behaviour)
+      if (superLikerSet.has(candidate.userId)) score += 40;
+      if (boostSet.has(candidate.userId)) score += 20;
+
+      // Shared games (up to 3 × 5 = 15 pts)
+      const sharedCount = candidate.userGames.filter((g) =>
+        myGameIds.has(g.gameId),
+      ).length;
+      score += Math.min(sharedCount, 3) * 5;
+
+      // Rank proximity for shared games (up to 10 pts per shared game, capped effectively)
+      for (const myGame of myGames) {
+        const theirGame = candidate.userGames.find(
+          (g) => g.gameId === myGame.gameId,
+        );
+        if (!theirGame || !myGame.rank || !theirGame.rank) continue;
+        const myIdx = getRankIndex(myGame.gameId, myGame.rank);
+        const theirIdx = getRankIndex(myGame.gameId, theirGame.rank);
+        if (myIdx === -1 || theirIdx === -1) continue;
+        const diff = Math.abs(myIdx - theirIdx);
+        if (diff <= 1) score += 10;
+        else if (diff <= 2) score += 5;
+      }
+
+      // Matching playstyle (8 pts)
+      if (
+        candidate.userGames.some(
+          (g) => g.playstyle && myPlaystyles.has(g.playstyle),
+        )
+      ) {
+        score += 8;
+      }
+
+      // Activity signals
+      if (candidate.isOnline) score += 7;
+      if (candidate.isAvailableNow) score += 6;
+
+      // Schedule overlap today (5 pts)
+      const myToday = myWindows.filter((w) => w.dayOfWeek === todayDow);
+      const theirToday = candidate.availability.filter(
+        (w) => w.dayOfWeek === todayDow,
+      );
+      if (myToday.length > 0 && theirToday.length > 0) score += 5;
+
+      // Good behaviour (3 pts)
+      if ((candidate.toxicityRating ?? 0) === 0) score += 3;
+
+      // New user boost — ≤7 days old (2 pts)
+      if (candidate.createdAt) {
+        const ageMs = Date.now() - new Date(candidate.createdAt).getTime();
+        if (ageMs < 7 * 24 * 60 * 60 * 1000) score += 2;
+      }
+
+      return { candidate, score };
     });
 
-    return filtered.map((f) => ({
-      ...f,
-      superLikedMe: superLikerSet.has(f.userId),
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored.map(({ candidate }) => ({
+      ...candidate,
+      superLikedMe: superLikerSet.has(candidate.userId),
     }));
   }
 

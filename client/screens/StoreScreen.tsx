@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +17,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { apiRequest } from "@/lib/api-client";
+import { useToast } from "@/lib/toast-context";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 const BOOST_COLOR = "#B857FF";
@@ -113,6 +115,7 @@ export default function StoreScreen() {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [purchasing, setPurchasing] = useState<string | null>(null);
 
   const { data: boostStatus } = useQuery<{ isBoosted: boolean; boostedUntil: string | null }>({
@@ -124,6 +127,13 @@ export default function StoreScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/boost-status"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      showToast({
+        type: "error",
+        title: t("store.boostErrorTitle"),
+        body: t("store.boostErrorBody"),
+      });
     },
   });
 
@@ -234,7 +244,8 @@ export default function StoreScreen() {
               <Pressable
                 key={d.minutes}
                 onPress={() => handleBoost(d.minutes, d.price)}
-                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1, flex: 1 }]}
+                disabled={activateBoostMutation.isPending}
+                style={({ pressed }) => [{ opacity: activateBoostMutation.isPending ? 0.5 : pressed ? 0.85 : 1, flex: 1 }]}
               >
                 <View style={[
                   styles.boostCard,
@@ -257,7 +268,11 @@ export default function StoreScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.priceButton}
                   >
-                    <ThemedText style={styles.priceText}>{d.price}</ThemedText>
+                    {activateBoostMutation.isPending ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <ThemedText style={styles.priceText}>{d.price}</ThemedText>
+                    )}
                   </LinearGradient>
                 </View>
               </Pressable>

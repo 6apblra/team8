@@ -98,6 +98,10 @@ export default {
     playingNowSubtitle: "Дайте другим знать, что вы готовы играть прямо сейчас",
     timeLeft: "Осталось",
     turnOff: "Отключить",
+    boostErrorTitle: "Ошибка буста",
+    boostErrorBody: "Не удалось изменить статус буста. Попробуйте ещё раз.",
+    playingNowErrorTitle: "Ошибка статуса",
+    playingNowErrorBody: "Не удалось обновить статус игры. Попробуйте ещё раз.",
   },
 
   matches: {
@@ -125,6 +129,10 @@ export default {
     settings: "Настройки",
     signOut: "Выйти",
     signOutConfirm: "Вы уверены, что хотите выйти?",
+    playingNowErrorTitle: "Ошибка статуса",
+    playingNowErrorBody: "Не удалось обновить статус игры. Попробуйте ещё раз.",
+    setDuration: "Выберите время",
+    setDurationSubtitle: "Как долго вы будете доступны для игры?",
   },
 
   chat: {
@@ -262,6 +270,8 @@ export default {
     boostConfirmMessage: "Поднять профиль за {{price}}? Вы будете первым в ленте у всех.",
     boostActiveUntil: "Буст активен до {{time}}",
     disclaimer: "Цены указаны в демонстрационных целях. Реальные платежи не обрабатываются.",
+    boostErrorTitle: "Ошибка буста",
+    boostErrorBody: "Не удалось активировать буст. Попробуйте ещё раз.",
   },
 
   gameData: {

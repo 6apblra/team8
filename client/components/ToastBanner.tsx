@@ -21,7 +21,7 @@ import { BorderRadius, Spacing } from "@/constants/theme";
 
 export interface ToastData {
   id: string;
-  type: "match" | "message";
+  type: "match" | "message" | "error";
   title: string;
   body: string;
   avatarUrl?: string | null;
@@ -64,7 +64,8 @@ export function ToastBanner({
   };
 
   const isMatch = toast?.type === "match";
-  const accentColor = isMatch ? theme.secondary : theme.primary;
+  const isError = toast?.type === "error";
+  const accentColor = isMatch ? theme.secondary : isError ? theme.danger : theme.primary;
 
   return (
     <Animated.View
@@ -95,6 +96,10 @@ export function ToastBanner({
           {isMatch ? (
             <View style={[styles.matchIconWrap, { backgroundColor: `${accentColor}20` }]}>
               <Feather name="heart" size={18} color={accentColor} />
+            </View>
+          ) : isError ? (
+            <View style={[styles.matchIconWrap, { backgroundColor: `${accentColor}20` }]}>
+              <Feather name="alert-circle" size={18} color={accentColor} />
             </View>
           ) : (
             <Image
