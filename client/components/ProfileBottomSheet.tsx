@@ -26,6 +26,7 @@ import { BorderRadius, Spacing, GameColors } from "@/constants/theme";
 import { GAMES, REGIONS, LANGUAGES, DAYS_OF_WEEK } from "@/lib/game-data";
 import { apiRequest } from "@/lib/api-client";
 import { compatibilityColor } from "@/lib/compatibility";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -116,6 +117,7 @@ export function ProfileBottomSheet({
 }: ProfileBottomSheetProps) {
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const bgOpacity = useSharedValue(0);
 
@@ -135,8 +137,8 @@ export function ProfileBottomSheet({
 
   useEffect(() => {
     if (data) {
-      bgOpacity.value = withTiming(1, { duration: 280 });
-      translateY.value = withSpring(0, { damping: 22, stiffness: 200 });
+      bgOpacity.value = withTiming(1, { duration: 260 });
+      translateY.value = withSpring(0, { damping: 26, stiffness: 220 });
     } else {
       bgOpacity.value = withTiming(0, { duration: 220 });
       translateY.value = withTiming(SCREEN_HEIGHT, { duration: 260, easing: Easing.out(Easing.quad) });
@@ -447,7 +449,7 @@ export function ProfileBottomSheet({
         </ScrollView>
 
         {/* Action buttons */}
-        <View style={[sheetStyles.actions, { backgroundColor: theme.backgroundDefault, borderTopColor: theme.border }]}>
+        <View style={[sheetStyles.actions, { backgroundColor: theme.backgroundDefault, borderTopColor: theme.border, paddingBottom: Math.max(32, 16 + bottomInset) }]}>
           <Pressable
             onPress={onClose}
             style={[sheetStyles.actionBtn, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
@@ -712,7 +714,6 @@ const sheetStyles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.xl,
-    paddingBottom: 32,
     borderTopWidth: 1,
   },
   actionBtn: {

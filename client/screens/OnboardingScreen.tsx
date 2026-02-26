@@ -131,8 +131,8 @@ function GameCard({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.91, { damping: 15, stiffness: 300 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }); }}
+      onPressIn={() => { scale.value = withSpring(0.95, { damping: 18, stiffness: 300 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 18, stiffness: 300 }); }}
       style={[
         animStyle,
         gcStyles.card,
@@ -208,8 +208,8 @@ function DayButton({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.84, { damping: 14 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
+      onPressIn={() => { scale.value = withSpring(0.91, { damping: 18 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 18 }); }}
       style={[
         animStyle,
         dayStyles.btn,
@@ -268,8 +268,8 @@ function TimeSlotCard({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.93, { damping: 15 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+      onPressIn={() => { scale.value = withSpring(0.96, { damping: 18 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 18 }); }}
       style={[
         animStyle,
         tsStyles.card,
@@ -344,25 +344,25 @@ function SuccessAnimation({
   const textOpacity = useSharedValue(0);
 
   useEffect(() => {
-    circleScale.value = withSpring(1, { damping: 12, stiffness: 200 });
-    textOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
+    circleScale.value = withSpring(1, { damping: 18, stiffness: 200 });
+    textOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
     glowOpacity.value = withDelay(
-      300,
+      250,
       withRepeat(
         withSequence(
-          withTiming(0.5, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.06, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
         true,
       ),
     );
     glowScale.value = withDelay(
-      300,
+      250,
       withRepeat(
         withSequence(
-          withTiming(1.65, { duration: 1200, easing: Easing.out(Easing.ease) }),
-          withTiming(1, { duration: 1200, easing: Easing.in(Easing.ease) }),
+          withTiming(1.4, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
         true,
@@ -379,7 +379,7 @@ function SuccessAnimation({
   }));
   const textStyle = useAnimatedStyle(() => ({
     opacity: textOpacity.value,
-    transform: [{ translateY: interpolate(textOpacity.value, [0, 1], [18, 0]) }],
+    transform: [{ translateY: interpolate(textOpacity.value, [0, 1], [10, 0]) }],
   }));
 
   return (
@@ -423,7 +423,6 @@ const sucStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: Spacing["3xl"],
     gap: Spacing.xl,
   },
   iconWrapper: { width: 130, height: 130, alignItems: "center", justifyContent: "center" },
@@ -972,6 +971,7 @@ const styles = StyleSheet.create({
   },
   scrollView: { flex: 1 },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.sm,

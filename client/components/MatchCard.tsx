@@ -70,8 +70,8 @@ export function MatchCard({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 250 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 250 }); }}
+      onPressIn={() => { scale.value = withSpring(0.97, { damping: 20, stiffness: 280 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 280 }); }}
       style={[
         animatedStyle,
         styles.container,

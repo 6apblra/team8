@@ -45,10 +45,10 @@ export function ToastBanner({
 
   useEffect(() => {
     if (toast) {
-      translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
-      opacity.value = withTiming(1, { duration: 200 });
+      translateY.value = withSpring(0, { damping: 24, stiffness: 240 });
+      opacity.value = withTiming(1, { duration: 180 });
     } else {
-      translateY.value = withSpring(-120, { damping: 18, stiffness: 220 });
+      translateY.value = withSpring(-120, { damping: 24, stiffness: 240 });
       opacity.value = withTiming(0, { duration: 200 });
     }
   }, [toast?.id]);

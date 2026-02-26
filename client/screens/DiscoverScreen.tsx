@@ -11,6 +11,7 @@ import {
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -131,9 +132,9 @@ function GlowButton({
             size={iconSize}
             color={color}
             onPress={() => {
-              scale.value = withSpring(0.88, { damping: 12, stiffness: 220 });
+              scale.value = withSpring(0.93, { damping: 18, stiffness: 260 });
               setTimeout(() => {
-                scale.value = withSpring(1, { damping: 12, stiffness: 220 });
+                scale.value = withSpring(1, { damping: 18, stiffness: 260 });
               }, 100);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onPress();
@@ -180,8 +181,8 @@ function UndoButton({
           onPress={
             canUndo
               ? () => {
-                  scale.value = withSpring(0.85, { damping: 12 });
-                  setTimeout(() => { scale.value = withSpring(1, { damping: 12 }); }, 120);
+                  scale.value = withSpring(0.92, { damping: 18 });
+                  setTimeout(() => { scale.value = withSpring(1, { damping: 18 }); }, 120);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onPress();
                 }
@@ -263,14 +264,14 @@ function MatchOverlay({
   const btnsOpacity = useSharedValue(0);
 
   useEffect(() => {
-    bgOpacity.value = withTiming(1, { duration: 350 });
-    myScale.value = withDelay(100, withSpring(1, { damping: 13, stiffness: 160 }));
-    theirScale.value = withDelay(220, withSpring(1, { damping: 13, stiffness: 160 }));
-    heartScale.value = withDelay(350, withSpring(1, { damping: 10, stiffness: 200 }));
-    titleY.value = withDelay(320, withTiming(0, { duration: 380, easing: Easing.out(Easing.back(1.4)) }));
-    titleOpacity.value = withDelay(320, withTiming(1, { duration: 380 }));
-    btnsY.value = withDelay(460, withTiming(0, { duration: 360, easing: Easing.out(Easing.quad) }));
-    btnsOpacity.value = withDelay(460, withTiming(1, { duration: 360 }));
+    bgOpacity.value = withTiming(1, { duration: 300 });
+    myScale.value = withDelay(80, withSpring(1, { damping: 20, stiffness: 180 }));
+    theirScale.value = withDelay(180, withSpring(1, { damping: 20, stiffness: 180 }));
+    heartScale.value = withDelay(300, withSpring(1, { damping: 18, stiffness: 200 }));
+    titleY.value = withDelay(260, withTiming(0, { duration: 320, easing: Easing.out(Easing.quad) }));
+    titleOpacity.value = withDelay(260, withTiming(1, { duration: 320 }));
+    btnsY.value = withDelay(380, withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }));
+    btnsOpacity.value = withDelay(380, withTiming(1, { duration: 300 }));
   }, []);
 
   const bgStyle = useAnimatedStyle(() => ({ opacity: bgOpacity.value }));
@@ -473,8 +474,8 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
   const glowScale  = useSharedValue(1);
   useEffect(() => {
     if (isActive) {
-      glowOpacity.value = withRepeat(withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.1, { duration: 800 })), -1, true);
-      glowScale.value   = withRepeat(withSequence(withTiming(1.6, { duration: 800 }), withTiming(1, { duration: 800 })), -1, true);
+      glowOpacity.value = withRepeat(withSequence(withTiming(0.45, { duration: 1100 }), withTiming(0.05, { duration: 1100 })), -1, true);
+      glowScale.value   = withRepeat(withSequence(withTiming(1.35, { duration: 1100 }), withTiming(1, { duration: 1100 })), -1, true);
     } else {
       glowOpacity.value = withTiming(0, { duration: 300 });
       glowScale.value   = withTiming(1, { duration: 300 });
@@ -562,6 +563,7 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(false);
   const [countdown, setCountdown] = useState("");
 
@@ -597,14 +599,14 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
     if (isActive) {
       glowOpacity.value = withRepeat(
         withSequence(
-          withTiming(0.65, { duration: 900 }),
-          withTiming(0.15, { duration: 900 }),
+          withTiming(0.4, { duration: 1200 }),
+          withTiming(0.08, { duration: 1200 }),
         ), -1, true,
       );
       glowScale.value = withRepeat(
         withSequence(
-          withTiming(1.5, { duration: 900 }),
-          withTiming(1, { duration: 900 }),
+          withTiming(1.3, { duration: 1200 }),
+          withTiming(1, { duration: 1200 }),
         ), -1, true,
       );
     } else {
@@ -706,7 +708,7 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
 
       <Modal visible={showModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setShowModal(false)}>
-          <Pressable style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault, paddingBottom: Spacing["3xl"] + bottomInset }]}>
             <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
 
             <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
@@ -1057,7 +1059,7 @@ export default function DiscoverScreen() {
       { translateX: translateX.value },
       { translateY: translateY.value },
       {
-        rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])}deg`,
+        rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-10, 0, 10])}deg`,
       },
     ],
   }));
@@ -1455,7 +1457,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
-    paddingBottom: Spacing["3xl"],
     gap: Spacing.lg,
   },
   modalHandle: {

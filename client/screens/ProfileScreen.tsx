@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -28,8 +28,10 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
+  runOnJS,
   Easing,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/api-client";
 import { useToast } from "@/lib/toast-context";
@@ -46,13 +48,181 @@ const { width: W } = Dimensions.get("window");
 const BANNER_HEIGHT = 160;
 const AVATAR_SIZE = 96;
 
-const PLAYING_NOW_DURATIONS = [
-  { label: "30m", minutes: 30 },
-  { label: "1h",  minutes: 60 },
-  { label: "1.5h", minutes: 90 },
-  { label: "2h",  minutes: 120 },
-  { label: "3h",  minutes: 180 },
-];
+const SLIDER_MIN = 15;   // minutes
+const SLIDER_MAX = 180;  // minutes
+const SLIDER_TRACK_W = W - Spacing.xl * 2 - Spacing.lg * 2; // sheet padding
+const THUMB_SIZE = 28;
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} мин`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+}
+
+function snapToStep(minutes: number, step = 15): number {
+  return Math.round(minutes / step) * step;
+}
+
+function DurationSlider({
+  value,
+  onChange,
+  color,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  color: string;
+}) {
+  const clampedInit = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, value));
+  const thumbX = useSharedValue(
+    ((clampedInit - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * SLIDER_TRACK_W,
+  );
+  const isDragging = useSharedValue(false);
+  const startX = useSharedValue(0);
+
+  const minutesFromX = (x: number) => {
+    "worklet";
+    const ratio = Math.max(0, Math.min(1, x / SLIDER_TRACK_W));
+    const raw = SLIDER_MIN + ratio * (SLIDER_MAX - SLIDER_MIN);
+    return Math.round(raw / 15) * 15; // snap to 15-min steps
+  };
+
+  const notifyChange = useCallback(
+    (mins: number) => {
+      onChange(mins);
+      Haptics.selectionAsync();
+    },
+    [onChange],
+  );
+
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      "worklet";
+      isDragging.value = true;
+      startX.value = thumbX.value;
+    })
+    .onUpdate((e) => {
+      "worklet";
+      const newX = Math.max(0, Math.min(SLIDER_TRACK_W, startX.value + e.translationX));
+      thumbX.value = newX;
+      const mins = minutesFromX(newX);
+      runOnJS(notifyChange)(mins);
+    })
+    .onEnd(() => {
+      "worklet";
+      isDragging.value = false;
+      // Snap thumb to exact step position
+      const mins = minutesFromX(thumbX.value);
+      const snappedX = ((mins - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * SLIDER_TRACK_W;
+      thumbX.value = withSpring(snappedX, { damping: 22, stiffness: 260 });
+    });
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: thumbX.value - THUMB_SIZE / 2 },
+      { scale: isDragging.value ? withSpring(1.15, { damping: 18, stiffness: 280 }) : withSpring(1, { damping: 18, stiffness: 280 }) },
+    ],
+  }));
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: thumbX.value,
+  }));
+
+  // Sync when parent value changes
+  useEffect(() => {
+    const x = ((value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * SLIDER_TRACK_W;
+    thumbX.value = Math.max(0, Math.min(SLIDER_TRACK_W, x));
+  }, [value]);
+
+  return (
+    <View style={sliderStyles.root}>
+      {/* Track */}
+      <View style={[sliderStyles.track, { backgroundColor: `${color}25` }]}>
+        {/* Fill */}
+        <Animated.View style={[sliderStyles.fill, { backgroundColor: color }, fillStyle]} />
+        {/* Tick marks for each 15-min step */}
+        {Array.from({ length: (SLIDER_MAX - SLIDER_MIN) / 15 - 1 }, (_, i) => {
+          const tickMin = SLIDER_MIN + (i + 1) * 15;
+          const tickX = ((tickMin - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * SLIDER_TRACK_W;
+          return (
+            <View
+              key={tickMin}
+              style={[sliderStyles.tick, { left: tickX - 1, backgroundColor: `${color}40` }]}
+            />
+          );
+        })}
+      </View>
+      {/* Thumb */}
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={[sliderStyles.thumbWrap, thumbStyle]}>
+          <View style={[sliderStyles.thumb, { backgroundColor: color, shadowColor: color }]} />
+        </Animated.View>
+      </GestureDetector>
+      {/* Labels */}
+      <View style={sliderStyles.labels}>
+        <ThemedText style={sliderStyles.labelText}>15 мин</ThemedText>
+        <ThemedText style={sliderStyles.labelText}>3 ч</ThemedText>
+      </View>
+    </View>
+  );
+}
+
+const sliderStyles = StyleSheet.create({
+  root: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    height: THUMB_SIZE + 28,
+    justifyContent: "center",
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 0,
+    overflow: "visible",
+    position: "relative",
+  },
+  fill: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderRadius: 3,
+  },
+  tick: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 2,
+    borderRadius: 1,
+  },
+  thumbWrap: {
+    position: "absolute",
+    top: -THUMB_SIZE / 2 + 3,
+    left: 0,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thumb: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  labels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  labelText: {
+    fontSize: 11,
+    opacity: 0.5,
+  },
+});
 
 interface UserGame {
   gameId: string;
@@ -90,16 +260,16 @@ function AvatarGlow({ color }: { color: string }) {
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.14, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.08, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
       true,
     );
     opacity.value = withRepeat(
       withSequence(
-        withTiming(0.15, { duration: 1800 }),
-        withTiming(0.5, { duration: 1800 }),
+        withTiming(0.1, { duration: 2200 }),
+        withTiming(0.35, { duration: 2200 }),
       ),
       -1,
       true,
@@ -131,16 +301,16 @@ function PulseDot({ color }: { color: string }) {
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.8, { duration: 800 }),
-        withTiming(1, { duration: 800 }),
+        withTiming(1.5, { duration: 1000 }),
+        withTiming(1, { duration: 1000 }),
       ),
       -1,
       true,
     );
     opacity.value = withRepeat(
       withSequence(
-        withTiming(0.2, { duration: 800 }),
-        withTiming(1, { duration: 800 }),
+        withTiming(0.15, { duration: 1000 }),
+        withTiming(0.85, { duration: 1000 }),
       ),
       -1,
       true,
@@ -260,6 +430,7 @@ export default function ProfileScreen() {
   const [availableUntil, setAvailableUntil] = useState<Date | null>(null);
   const [remainingMinutes, setRemainingMinutes] = useState<number | null>(null);
   const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [sliderMinutes, setSliderMinutes] = useState(60);
 
   // Staggered entrance
   const heroAnim = useSharedValue(0);
@@ -268,16 +439,16 @@ export default function ProfileScreen() {
   const section3Anim = useSharedValue(0);
 
   useEffect(() => {
-    heroAnim.value = withSpring(1, { damping: 20, stiffness: 80 });
-    section1Anim.value = withDelay(120, withSpring(1, { damping: 20, stiffness: 80 }));
-    section2Anim.value = withDelay(220, withSpring(1, { damping: 20, stiffness: 80 }));
-    section3Anim.value = withDelay(320, withSpring(1, { damping: 20, stiffness: 80 }));
+    heroAnim.value = withSpring(1, { damping: 22, stiffness: 100 });
+    section1Anim.value = withDelay(80, withSpring(1, { damping: 22, stiffness: 100 }));
+    section2Anim.value = withDelay(160, withSpring(1, { damping: 22, stiffness: 100 }));
+    section3Anim.value = withDelay(240, withSpring(1, { damping: 22, stiffness: 100 }));
   }, []);
 
   const makeEntranceStyle = (anim: { value: number }) =>
     useAnimatedStyle(() => ({
       opacity: anim.value,
-      transform: [{ translateY: (1 - anim.value) * 20 }],
+      transform: [{ translateY: (1 - anim.value) * 12 }],
     }));
 
   const heroStyle = makeEntranceStyle(heroAnim);
@@ -648,42 +819,51 @@ export default function ProfileScreen() {
           style={styles.pickerOverlay}
           onPress={() => setShowDurationPicker(false)}
         >
-          <Pressable style={[styles.pickerSheet, { backgroundColor: theme.backgroundDefault }]}>
+          <Pressable style={[styles.pickerSheet, { backgroundColor: theme.backgroundDefault, paddingBottom: Spacing["3xl"] + insets.bottom }]}>
             <View style={[styles.pickerHandle, { backgroundColor: theme.border }]} />
-            <ThemedText style={[styles.pickerTitle, { color: theme.text }]}>
-              {t("profile.setDuration")}
-            </ThemedText>
-            <ThemedText style={[styles.pickerSub, { color: theme.textSecondary }]}>
-              {t("profile.setDurationSubtitle")}
-            </ThemedText>
-            <View style={styles.pickerGrid}>
-              {PLAYING_NOW_DURATIONS.map((d) => (
-                <Pressable
-                  key={d.minutes}
-                  onPress={() => setAvailableMutation.mutate(d.minutes)}
-                  disabled={setAvailableMutation.isPending}
-                  style={({ pressed }) => [
-                    styles.pickerBtn,
-                    {
-                      backgroundColor: `${theme.success}18`,
-                      borderColor: theme.success,
-                      opacity: setAvailableMutation.isPending ? 0.5 : pressed ? 0.75 : 1,
-                    },
-                  ]}
-                >
-                  {setAvailableMutation.isPending ? (
-                    <ActivityIndicator color={theme.success} size="small" />
-                  ) : (
-                    <>
-                      <Feather name="zap" size={18} color={theme.success} />
-                      <ThemedText style={{ color: theme.success, fontWeight: "700", fontSize: 16 }}>
-                        {d.label}
-                      </ThemedText>
-                    </>
-                  )}
-                </Pressable>
-              ))}
+
+            {/* Title + live time display */}
+            <View style={{ alignItems: "center", gap: 4 }}>
+              <ThemedText style={[styles.pickerTitle, { color: theme.text }]}>
+                {t("profile.setDuration")}
+              </ThemedText>
+              <View style={[styles.pickerTimeBadge, { backgroundColor: `${theme.success}18`, borderColor: `${theme.success}50` }]}>
+                <Feather name="clock" size={14} color={theme.success} />
+                <ThemedText style={{ color: theme.success, fontWeight: "700", fontSize: 22, letterSpacing: -0.5 }}>
+                  {formatDuration(sliderMinutes)}
+                </ThemedText>
+              </View>
             </View>
+
+            {/* Slider */}
+            <View style={styles.pickerSliderWrap}>
+              <DurationSlider
+                value={sliderMinutes}
+                onChange={setSliderMinutes}
+                color={theme.success}
+              />
+            </View>
+
+            {/* Confirm button */}
+            <Pressable
+              onPress={() => setAvailableMutation.mutate(sliderMinutes)}
+              disabled={setAvailableMutation.isPending}
+              style={({ pressed }) => [
+                styles.pickerConfirmBtn,
+                { backgroundColor: theme.success, opacity: pressed || setAvailableMutation.isPending ? 0.75 : 1 },
+              ]}
+            >
+              {setAvailableMutation.isPending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Feather name="zap" size={18} color="#fff" />
+                  <ThemedText style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
+                    {t("profile.startPlaying")}
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1021,7 +1201,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
-    paddingBottom: Spacing["3xl"],
     gap: Spacing.lg,
   },
   pickerHandle: {
@@ -1032,29 +1211,31 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   pickerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
   },
-  pickerSub: {
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: -Spacing.sm,
-  },
-  pickerGrid: {
+  pickerTimeBadge: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    alignItems: "center",
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    marginTop: 2,
   },
-  pickerBtn: {
-    width: "30%",
+  pickerSliderWrap: {
+    marginHorizontal: -Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  pickerConfirmBtn: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     paddingVertical: Spacing.lg,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    marginTop: Spacing.xs,
   },
 });

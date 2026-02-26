@@ -133,6 +133,7 @@ export default {
     playingNowErrorBody: "Could not update playing status. Please try again.",
     setDuration: "Set Duration",
     setDurationSubtitle: "How long are you available to play?",
+    startPlaying: "Start Gaming Session",
   },
 
   chat: {

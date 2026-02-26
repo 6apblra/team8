@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -112,6 +113,7 @@ const BOOST_DURATIONS = [
 
 export default function StoreScreen() {
   const headerHeight = useHeaderHeight();
+  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -185,7 +187,7 @@ export default function StoreScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: headerHeight + Spacing.lg },
+          { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing["3xl"] },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -328,7 +330,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing["5xl"],
     gap: Spacing.lg,
   },
   hero: {

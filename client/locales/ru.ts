@@ -133,6 +133,7 @@ export default {
     playingNowErrorBody: "Не удалось обновить статус игры. Попробуйте ещё раз.",
     setDuration: "Выберите время",
     setDurationSubtitle: "Как долго вы будете доступны для игры?",
+    startPlaying: "Начать игровую сессию",
   },
 
   chat: {
