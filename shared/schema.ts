@@ -74,6 +74,7 @@ export const userGames = pgTable(
       .references(() => games.id, { onDelete: "cascade" }),
     rank: text("rank"),
     roles: jsonb("roles").$type<string[]>().default([]),
+    character: text("character"),
     playstyle: text("playstyle"),
     platform: text("platform"),
     isPrimary: boolean("is_primary").default(false),

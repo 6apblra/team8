@@ -172,12 +172,15 @@ export default {
     selectGamesSubtitle: "Choose games you want to find teammates for",
     gameDetails: "Game Details",
     gameDetailsSubtitle: "Set your rank and roles for each game",
-    rank: "Rank",
+    rank: "Rank / Rating",
     rolesMultiple: "Roles (select multiple)",
+    character: "Favourite Character / Agent",
     playstyle: "Playstyle",
     platform: "Platform",
     selectAtLeastOne: "Please select at least one game",
     failedUpdate: "Failed to update games. Please try again.",
+    next: "Next",
+    gamesSelected: "{{count}} selected",
   },
 
   filters: {

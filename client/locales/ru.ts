@@ -172,12 +172,15 @@ export default {
     selectGamesSubtitle: "Выберите игры, для которых хотите найти тиммейтов",
     gameDetails: "Детали игр",
     gameDetailsSubtitle: "Укажите ранг и роли для каждой игры",
-    rank: "Ранг",
+    rank: "Ранг / Звание",
     rolesMultiple: "Роли (можно несколько)",
+    character: "Любимый персонаж / агент",
     playstyle: "Стиль игры",
     platform: "Платформа",
     selectAtLeastOne: "Выберите хотя бы одну игру",
     failedUpdate: "Не удалось обновить игры. Попробуйте ещё раз.",
+    next: "Далее",
+    gamesSelected: "{{count}} выбрано",
   },
 
   filters: {

@@ -635,41 +635,100 @@ export default function ProfileScreen() {
               color={theme.secondary}
               action={{ label: t("common.edit"), onPress: () => navigation.navigate("EditGames") }}
             />
-            {psData && playstyleKey && (
-              <View style={[styles.playstyleChip, { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}30` }]}>
-                <Feather name={psData.icon as any} size={14} color={theme.primary} />
-                <ThemedText style={[styles.playstyleText, { color: theme.primary }]}>
-                  {t(`gameData.playstyles.${playstyleKey}`)}
-                </ThemedText>
-              </View>
-            )}
             {userGames.length > 0 ? (
               <View style={styles.gamesGrid}>
-                {userGames.map((game, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.gameCard,
-                      {
-                        backgroundColor: theme.backgroundDefault,
-                        borderColor: theme.border,
-                        borderLeftColor: GameColors[game.gameId] || theme.primary,
-                      },
-                    ]}
-                  >
-                    <GameBadge
-                      game={game.gameId}
-                      rank={game.rank || undefined}
-                      role={game.roles?.[0]}
-                      size="medium"
-                    />
-                    {game.isPrimary && (
-                      <View style={[styles.primaryBadge, { backgroundColor: `${theme.secondary}20` }]}>
-                        <ThemedText style={[styles.primaryText, { color: theme.secondary }]}>main</ThemedText>
+                {userGames.map((game, i) => {
+                  const gc = GameColors[game.gameId] || theme.primary;
+                  const gameIcon = GAME_ICON_MAP[game.gameId] || "award";
+                  const gameName = GAME_NAME_MAP[game.gameId] || game.gameId;
+                  const gamePlaystyle = game.playstyle
+                    ? PLAYSTYLES.find((p) => p.id === game.playstyle)
+                    : null;
+                  const extraRoles = (game.roles?.length ?? 0) > 1 ? game.roles!.slice(1) : [];
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.gameCard,
+                        { backgroundColor: theme.backgroundDefault, borderColor: `${gc}35` },
+                      ]}
+                    >
+                      {/* Gradient tint strip on left */}
+                      <LinearGradient
+                        colors={[`${gc}30`, `${gc}06`]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={StyleSheet.absoluteFillObject}
+                      />
+
+                      {/* Left: icon block */}
+                      <View style={[styles.gameIconBlock, { backgroundColor: `${gc}20` }]}>
+                        <Feather name={gameIcon as any} size={22} color={gc} />
                       </View>
-                    )}
-                  </View>
-                ))}
+
+                      {/* Middle: info */}
+                      <View style={styles.gameInfo}>
+                        {/* Name row */}
+                        <View style={styles.gameNameRow}>
+                          <ThemedText style={[styles.gameNameText, { color: gc }]}>
+                            {gameName}
+                          </ThemedText>
+                          {game.isPrimary && (
+                            <View style={[styles.primaryBadge, { backgroundColor: `${gc}22`, borderColor: `${gc}50` }]}>
+                              <ThemedText style={[styles.primaryText, { color: gc }]}>
+                                {t("profile.mainGame")}
+                              </ThemedText>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Rank + character row */}
+                        <View style={styles.gameMetaRow}>
+                          {game.rank && (
+                            <View style={[styles.rankChip, { backgroundColor: `${gc}18`, borderColor: `${gc}40` }]}>
+                              <Feather name="trending-up" size={10} color={gc} />
+                              <ThemedText style={[styles.rankChipText, { color: gc }]}>
+                                {game.rank}
+                              </ThemedText>
+                            </View>
+                          )}
+                          {(game as any).character && (
+                            <View style={[styles.rankChip, { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}30` }]}>
+                              <Feather name="user" size={10} color={theme.primary} />
+                              <ThemedText style={[styles.rankChipText, { color: theme.primary }]}>
+                                {(game as any).character}
+                              </ThemedText>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Roles + playstyle tags */}
+                        {((game.roles?.length ?? 0) > 0 || gamePlaystyle) && (
+                          <View style={styles.gameTagsRow}>
+                            {game.roles?.map((role, ri) => (
+                              <View
+                                key={ri}
+                                style={[styles.roleTag, { backgroundColor: `${theme.backgroundSecondary}`, borderColor: `${theme.border}` }]}
+                              >
+                                <ThemedText style={[styles.roleTagText, { color: theme.textSecondary }]}>
+                                  {role}
+                                </ThemedText>
+                              </View>
+                            ))}
+                            {gamePlaystyle && (
+                              <View style={[styles.roleTag, { backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}25` }]}>
+                                <Feather name={gamePlaystyle.icon as any} size={9} color={theme.primary} />
+                                <ThemedText style={[styles.roleTagText, { color: theme.primary }]}>
+                                  {t(`gameData.playstyles.${gamePlaystyle.id}`)}
+                                </ThemedText>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <Pressable

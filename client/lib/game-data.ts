@@ -84,6 +84,42 @@ export const ROLES = {
   apex: ["Assault", "Skirmisher", "Recon", "Controller", "Support"],
 };
 
+// Favourite agents / characters per game
+export const CHARACTERS: Record<string, string[]> = {
+  valorant: [
+    "Jett", "Reyna", "Phoenix", "Yoru", "Neon", "Iso", // Duelists
+    "Brimstone", "Omen", "Viper", "Astra", "Harbor", "Clove", // Controllers
+    "Sova", "Breach", "Skye", "KAY/O", "Fade", "Gekko", // Initiators
+    "Sage", "Cypher", "Killjoy", "Chamber", "Deadlock", "Vyse", // Sentinels
+  ],
+  lol: [
+    "Jinx", "Caitlyn", "Ezreal", "Kai'Sa", "Jhin", "Ashe",
+    "Ahri", "Zed", "Yasuo", "Akali", "Lux", "Syndra",
+    "Thresh", "Blitzcrank", "Leona", "Lulu", "Nautilus", "Soraka",
+    "Lee Sin", "Vi", "Kayn", "Hecarim", "Viego", "Master Yi",
+    "Darius", "Garen", "Fiora", "Camille", "Renekton", "Sett",
+  ],
+  apex: [
+    "Wraith", "Octane", "Pathfinder", "Mirage", "Crypto",
+    "Bloodhound", "Seer", "Vantage", "Alter",
+    "Gibraltar", "Caustic", "Wattson", "Rampart", "Newcastle",
+    "Lifeline", "Loba", "Horizon", "Mad Maggie", "Ballistic", "Conduit",
+  ],
+  fortnite: [
+    "Jonesy", "Peely", "Fishstick", "Drift", "Lynx",
+    "Midas", "Brutus", "TNTina", "Skye",
+    "Slone", "Paradigm", "The Foundation", "Origin",
+  ],
+  dota2: [
+    "Anti-Mage", "Juggernaut", "Phantom Assassin", "Ember Spirit", "Faceless Void",
+    "Invoker", "Shadow Fiend", "Pudge", "Crystal Maiden", "Lion",
+    "Axe", "Tidehunter", "Dragon Knight", "Bristleback", "Centaur Warrunner",
+    "Enigma", "Nature's Prophet", "Tinker", "Zeus", "Storm Spirit",
+  ],
+  cs2: [], // no characters for CS2
+  wot: [], // no characters for WoT
+};
+
 export const PLAYSTYLES = [
   { id: "competitive", label: "Competitive", icon: "target" },
   { id: "flex", label: "Flex", icon: "zap" },

@@ -51,6 +51,7 @@ export const userGameSchema = z.object({
   gameId: z.string().min(1, "Game ID is required"),
   rank: z.string().max(50).optional().nullable(),
   roles: z.array(z.string()).default([]),
+  character: z.string().max(60).optional().nullable(),
   playstyle: z
     .enum(["competitive", "casual", "flex", "both"])
     .optional()
