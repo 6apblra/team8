@@ -231,7 +231,7 @@ export function ProfileBottomSheet({
                 ]}>
                   <Feather name="zap" size={11} color={compatibilityColor(compatibilityScore)} />
                   <ThemedText style={[sheetStyles.compatBadgeText, { color: compatibilityColor(compatibilityScore) }]}>
-                    {compatibilityScore}% совместимость
+                    {t("bottomSheet.compatibility", { score: String(compatibilityScore) })}
                   </ThemedText>
                 </View>
               )}
@@ -239,7 +239,7 @@ export function ProfileBottomSheet({
               {data.superLikedMe && (
                 <View style={sheetStyles.superBadge}>
                   <Feather name="star" size={11} color="#FFD700" />
-                  <ThemedText style={sheetStyles.superBadgeText}>Super Liked you</ThemedText>
+                  <ThemedText style={sheetStyles.superBadgeText}>{t("swipeCard.superLikedYou")}</ThemedText>
                 </View>
               )}
 
@@ -254,13 +254,13 @@ export function ProfileBottomSheet({
                 {data.micEnabled && (
                   <View style={[sheetStyles.tag, { backgroundColor: `${theme.success}15` }]}>
                     <Feather name="mic" size={12} color={theme.success} />
-                    <ThemedText style={[sheetStyles.tagText, { color: theme.success }]}>Mic</ThemedText>
+                    <ThemedText style={[sheetStyles.tagText, { color: theme.success }]}>{t("swipeCard.mic")}</ThemedText>
                   </View>
                 )}
                 {data.isAvailableNow && (
                   <View style={[sheetStyles.tag, { backgroundColor: `${theme.secondary}15` }]}>
                     <Feather name="zap" size={12} color={theme.secondary} />
-                    <ThemedText style={[sheetStyles.tagText, { color: theme.secondary }]}>Ready</ThemedText>
+                    <ThemedText style={[sheetStyles.tagText, { color: theme.secondary }]}>{t("swipeCard.ready")}</ThemedText>
                   </View>
                 )}
               </View>
@@ -288,7 +288,7 @@ export function ProfileBottomSheet({
           {/* Games */}
           {data.userGames.length > 0 && (
             <View style={sheetStyles.sectionBlock}>
-              <SectionHeader title="Games" icon="grid" />
+              <SectionHeader title={t("bottomSheet.games")} icon="grid" />
               <View style={sheetStyles.gamesList}>
                 {data.userGames.map((g, i) => {
                   const gameInfo = GAMES.find((x) => x.id === g.gameId);
@@ -331,7 +331,7 @@ export function ProfileBottomSheet({
           {/* Availability */}
           {availByDay.length > 0 && (
             <View style={sheetStyles.sectionBlock}>
-              <SectionHeader title="Availability" icon="clock" />
+              <SectionHeader title={t("bottomSheet.availability")} icon="clock" />
               <View style={sheetStyles.availRow}>
                 {availByDay.map((d) => (
                   <View key={d.label} style={[sheetStyles.dayChip, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
@@ -350,7 +350,7 @@ export function ProfileBottomSheet({
           {/* Social IDs */}
           {(data.discordTag || data.steamId || data.riotId) && (
             <View style={sheetStyles.sectionBlock}>
-              <SectionHeader title="Social" icon="link" />
+              <SectionHeader title={t("bottomSheet.social")} icon="link" />
               <View style={sheetStyles.socialList}>
                 {data.discordTag && (
                   <View style={[sheetStyles.socialRow, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
@@ -478,7 +478,7 @@ export function ProfileBottomSheet({
                 style={sheetStyles.likeInner}
               >
                 <Feather name="heart" size={20} color="#fff" />
-                <ThemedText style={sheetStyles.likeText}>Like</ThemedText>
+                <ThemedText style={sheetStyles.likeText}>{t("bottomSheet.like")}</ThemedText>
               </Pressable>
             </LinearGradient>
           )}

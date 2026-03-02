@@ -41,12 +41,12 @@ import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
-import { PLAYSTYLES } from "@/lib/game-data";
+import { PLAYSTYLES, GAMES, GAME_ICONS } from "@/lib/game-data";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: W } = Dimensions.get("window");
-const BANNER_HEIGHT = 160;
-const AVATAR_SIZE = 96;
+const BANNER_HEIGHT = 180;
+const AVATAR_SIZE = 104;
 
 const SLIDER_MIN = 15;   // minutes
 const SLIDER_MAX = 180;  // minutes
@@ -381,6 +381,7 @@ function SettingRow({
     <>
       <Pressable
         onPress={onPress}
+        accessibilityRole="button"
         style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
       >
         <View style={[styles.settingIconWrap, { backgroundColor: iconBg }]}>
@@ -572,7 +573,7 @@ export default function ProfileScreen() {
 
           {/* Avatar area */}
           <View style={styles.avatarSection}>
-            <Pressable onPress={() => navigation.navigate("EditProfile")} style={styles.avatarWrap}>
+            <Pressable onPress={() => navigation.navigate("EditProfile")} accessibilityLabel={t("a11y.editAvatar")} accessibilityRole="button" style={styles.avatarWrap}>
               <AvatarGlow color={bannerColor} />
               <View style={[styles.avatarRing, { borderColor: `${bannerColor}60` }]}>
                 <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
@@ -586,7 +587,7 @@ export default function ProfileScreen() {
             <View style={styles.nameBlock}>
               <View style={styles.nameRow}>
                 <ThemedText style={[styles.nickname, { color: theme.text }]}>
-                  {displayProfile?.nickname || "Player"}
+                  {displayProfile?.nickname || t("profile.player")}
                 </ThemedText>
                 {displayProfile?.age ? (
                   <ThemedText style={[styles.age, { color: theme.textSecondary }]}>
@@ -609,10 +610,10 @@ export default function ProfileScreen() {
               <StatChip icon="mic" label={t("profile.micOn")} color={theme.success} />
             )}
             {userGames.length > 0 && (
-              <StatChip icon="monitor" label={`${userGames.length} games`} color={theme.secondary} />
+              <StatChip icon="monitor" label={t("profile.gamesCount", { count: String(userGames.length) })} color={theme.secondary} />
             )}
             {isAvailableNow && (
-              <StatChip icon="zap" label="Ready to Play" color={theme.success} />
+              <StatChip icon="zap" label={t("profile.readyToPlay")} color={theme.success} />
             )}
           </View>
 
@@ -639,8 +640,9 @@ export default function ProfileScreen() {
               <View style={styles.gamesGrid}>
                 {userGames.map((game, i) => {
                   const gc = GameColors[game.gameId] || theme.primary;
-                  const gameIcon = GAME_ICON_MAP[game.gameId] || "award";
-                  const gameName = GAME_NAME_MAP[game.gameId] || game.gameId;
+                  const gameInfo = GAMES.find(g => g.id === game.gameId);
+                  const gameIcon = GAME_ICONS[game.gameId] || "award";
+                  const gameName = gameInfo?.name || game.gameId;
                   const gamePlaystyle = game.playstyle
                     ? PLAYSTYLES.find((p) => p.id === game.playstyle)
                     : null;
@@ -784,9 +786,9 @@ export default function ProfileScreen() {
                   <ThemedText style={[styles.timerText, { color: theme.success }]}>
                     {remainingMinutes >= 60
                       ? t("profile.activeForHM", {
-                          hours: String(Math.floor(remainingMinutes / 60)),
-                          minutes: String(remainingMinutes % 60),
-                        })
+                        hours: String(Math.floor(remainingMinutes / 60)),
+                        minutes: String(remainingMinutes % 60),
+                      })
                       : t("profile.activeForM", { minutes: String(remainingMinutes) })}
                   </ThemedText>
                 </View>
@@ -1017,14 +1019,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
   statChipText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 
   // Bio
@@ -1090,6 +1093,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     padding: Spacing.xl,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
 
   // Games
@@ -1117,7 +1125,72 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  gameIconBlock: {
+    width: 50,
+    height: 50,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  gameInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  gameNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  gameNameText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  gameMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  rankChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  rankChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  gameTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    marginTop: 2,
+  },
+  roleTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  roleTagText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   primaryBadge: {
     paddingHorizontal: 8,
@@ -1253,7 +1326,7 @@ const styles = StyleSheet.create({
   // Duration picker modal
   pickerOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0,0.65)",
     justifyContent: "flex-end",
   },
   pickerSheet: {

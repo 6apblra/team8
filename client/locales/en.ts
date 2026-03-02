@@ -28,6 +28,7 @@ export default {
     fillAllFields: "Please fill in all fields",
     passwordsMismatch: "Passwords do not match",
     passwordMinLength: "Password must be at least 6 characters",
+    invalidCredentials: "Invalid email or password",
     connectionError: "Connection error. Please try again.",
     footer: "By continuing, you agree to our Terms of Service and Privacy Policy",
   },
@@ -107,11 +108,17 @@ export default {
   matches: {
     noMatchesTitle: "No Matches Yet",
     noMatchesSubtitle: "Keep swiping to find your teammates!",
+    newMatches: "New Matches",
+    messages: "Messages",
+    noMessagesHint: "No messages yet — tap a match to say hi!",
   },
 
   profile: {
     micOn: "Mic On",
     games: "Games",
+    gamesCount: "{{count}} games",
+    mainGame: "Main",
+    player: "Player",
     addGames: "Add games to find teammates",
     details: "Details",
     languagesLabel: "Languages",
@@ -140,6 +147,7 @@ export default {
     startConversation: "Start the conversation!",
     isTyping: "{{name}} is typing...",
     messagePlaceholder: "Type a message...",
+    online: "online",
     reportUser: "Report User",
     reportWhy: "Why are you reporting this user?",
     blockUser: "Block User",
@@ -165,6 +173,9 @@ export default {
     selectRegion: "Please select a region",
     failedUpdate: "Failed to update profile. Please try again.",
     failedUpload: "Failed to upload avatar",
+    gifHint: "💡 You can use a GIF for an animated avatar",
+    voiceChatOn: "Voice chat enabled",
+    voiceChatOff: "Voice chat off",
   },
 
   editGames: {
@@ -276,6 +287,35 @@ export default {
     disclaimer: "Prices shown are for demonstration purposes. Real payments are not processed.",
     boostErrorTitle: "Boost Failed",
     boostErrorBody: "Could not activate boost. Please try again.",
+  },
+
+  swipeCard: {
+    superLikedYou: "Super Liked you",
+    matchPercent: "{{score}}% match",
+    ready: "Ready",
+    online: "Online",
+    mic: "Mic",
+  },
+
+  bottomSheet: {
+    compatibility: "{{score}}% match",
+    games: "Games",
+    availability: "Availability",
+    social: "Social",
+    like: "Like",
+  },
+
+  a11y: {
+    like: "Like",
+    nope: "Skip",
+    superLike: "Super Like",
+    undo: "Undo last swipe",
+    sendMessage: "Send message",
+    moreOptions: "More options",
+    editAvatar: "Edit profile photo",
+    profileInfo: "View full profile",
+    boost: "Toggle boost",
+    playingNow: "Toggle playing now status",
   },
 
   gameData: {

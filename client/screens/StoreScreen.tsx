@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -13,6 +13,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
@@ -31,7 +38,7 @@ interface SuperLikePack {
 }
 
 const SUPER_LIKE_PACKS: SuperLikePack[] = [
-  { id: "sl_3",  count: 3,  price: "$0.99" },
+  { id: "sl_3", count: 3, price: "$0.99" },
   { id: "sl_10", count: 10, price: "$2.49", badge: "popular" },
   { id: "sl_25", count: 25, price: "$4.99", badge: "best_value" },
 ];
@@ -48,7 +55,7 @@ function PackCard({
   t: any;
 }) {
   const isPopular = pack.badge === "popular";
-  const isBest   = pack.badge === "best_value";
+  const isBest = pack.badge === "best_value";
   const highlighted = isPopular || isBest;
 
   return (
@@ -105,10 +112,45 @@ function PackCard({
   );
 }
 
+// ─── Animated Hero ────────────────────────────────────────────────────────────
+function HeroSection({ theme, t }: { theme: any; t: any }) {
+  const emojiScale = useSharedValue(1);
+
+  useEffect(() => {
+    emojiScale.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 1200 }),
+        withTiming(1, { duration: 1200 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const emojiStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: emojiScale.value }],
+  }));
+
+  return (
+    <LinearGradient
+      colors={[`${theme.secondary}30`, `${theme.primary}18`, `${theme.secondary}10`]}
+      style={[styles.hero, { borderColor: `${theme.secondary}55` }]}
+    >
+      <Animated.Text style={[styles.heroEmoji, emojiStyle]}>⚡</Animated.Text>
+      <ThemedText style={[styles.heroTitle, { color: theme.text }]}>
+        {t("store.heroTitle")}
+      </ThemedText>
+      <ThemedText style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
+        {t("store.heroSubtitle")}
+      </ThemedText>
+    </LinearGradient>
+  );
+}
+
 const BOOST_DURATIONS = [
   { label: "30m", minutes: 30, price: "$0.99" },
-  { label: "1h",  minutes: 60, price: "$1.49", badge: "popular" },
-  { label: "3h",  minutes: 180, price: "$2.99", badge: "best_value" },
+  { label: "1h", minutes: 60, price: "$1.49", badge: "popular" },
+  { label: "3h", minutes: 180, price: "$2.99", badge: "best_value" },
 ];
 
 export default function StoreScreen() {
@@ -192,18 +234,7 @@ export default function StoreScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
-        <LinearGradient
-          colors={[`${theme.secondary}22`, `${theme.primary}11`]}
-          style={[styles.hero, { borderColor: `${theme.secondary}44` }]}
-        >
-          <ThemedText style={styles.heroEmoji}>⚡</ThemedText>
-          <ThemedText style={[styles.heroTitle, { color: theme.text }]}>
-            {t("store.heroTitle")}
-          </ThemedText>
-          <ThemedText style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
-            {t("store.heroSubtitle")}
-          </ThemedText>
-        </LinearGradient>
+        <HeroSection theme={theme} t={t} />
 
         {/* Super Likes packs */}
         <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
@@ -240,8 +271,8 @@ export default function StoreScreen() {
 
         <View style={styles.boostGrid}>
           {BOOST_DURATIONS.map((d) => {
-            const isPopular   = d.badge === "popular";
-            const isBest      = d.badge === "best_value";
+            const isPopular = d.badge === "popular";
+            const isBest = d.badge === "best_value";
             return (
               <Pressable
                 key={d.minutes}
@@ -353,10 +384,15 @@ const styles = StyleSheet.create({
   },
   packsGrid: { gap: Spacing.md },
   packCard: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
     gap: Spacing.sm,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   packBadge: {
     position: "absolute",
@@ -390,9 +426,14 @@ const styles = StyleSheet.create({
   },
   priceText: { fontSize: 16, fontWeight: "700", color: "#fff" },
   premiumCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing["2xl"],
     marginTop: Spacing.sm,
+    shadowColor: "#B857FF",
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
   },
   premiumContent: {
     flexDirection: "row",

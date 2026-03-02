@@ -669,7 +669,7 @@ export default function OnboardingScreen() {
                       {t("onboarding.microphone")}
                     </ThemedText>
                     <ThemedText style={{ fontSize: 12, color: theme.textSecondary }}>
-                      {micEnabled ? "Voice chat enabled" : "Voice chat off"}
+                      {micEnabled ? t("editProfile.voiceChatOn") : t("editProfile.voiceChatOff")}
                     </ThemedText>
                   </View>
                 </View>

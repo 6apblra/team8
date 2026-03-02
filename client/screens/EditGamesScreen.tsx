@@ -32,7 +32,7 @@ import { SelectableChip } from "@/components/SelectableChip";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Spacing, BorderRadius, GameColors } from "@/constants/theme";
-import { GAMES, RANKS, ROLES, CHARACTERS, PLAYSTYLES, PLATFORMS } from "@/lib/game-data";
+import { GAMES, RANKS, ROLES, CHARACTERS, PLAYSTYLES, PLATFORMS, GAME_ICONS } from "@/lib/game-data";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -49,15 +49,7 @@ interface UserGame {
   isPrimary?: boolean;
 }
 
-const GAME_ICONS: Record<string, string> = {
-  valorant: "crosshair",
-  cs2: "target",
-  dota2: "shield",
-  fortnite: "box",
-  lol: "award",
-  wot: "menu",
-  apex: "triangle",
-};
+
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 

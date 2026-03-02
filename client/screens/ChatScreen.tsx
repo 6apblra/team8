@@ -78,6 +78,7 @@ function ChatHeader({
   onOptions: () => void;
 }) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const avatar =
     avatarUrl ||
     AVATAR_PLACEHOLDERS[Math.floor(Math.random() * AVATAR_PLACEHOLDERS.length)];
@@ -91,11 +92,13 @@ function ChatHeader({
         </View>
         <View>
           <ThemedText style={[styles.headerNickname, { color: theme.text }]}>{nickname}</ThemedText>
-          <ThemedText style={[styles.headerStatus, { color: theme.success }]}>online</ThemedText>
+          <ThemedText style={[styles.headerStatus, { color: theme.success }]}>{t("chat.online")}</ThemedText>
         </View>
       </View>
       <Pressable
         onPress={onOptions}
+        accessibilityLabel="Options"
+        accessibilityRole="button"
         style={({ pressed }) => [styles.headerOptions, { opacity: pressed ? 0.6 : 1 }]}
       >
         <Feather name="more-vertical" size={22} color={theme.text} />
@@ -525,6 +528,8 @@ export default function ChatScreen() {
               <Pressable
                 onPress={handleSend}
                 disabled={!canSend}
+                accessibilityLabel={t("a11y.sendMessage")}
+                accessibilityRole="button"
                 style={[
                   styles.sendButton,
                   {

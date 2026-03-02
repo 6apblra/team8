@@ -268,7 +268,7 @@ export default function LoginScreen() {
 
   const tabIndicatorStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: interpolate(tabSlide.value, [0, 1], [0, (W - Spacing.xl * 2 - 8) / 2]) },
+      { translateX: interpolate(tabSlide.value, [0, 1], [0, (W - Spacing.xl * 2 - Spacing.xl * 2 - 8) / 2]) },
     ],
   }));
 
@@ -291,7 +291,15 @@ export default function LoginScreen() {
       const result = isLogin
         ? await login(email.trim(), password)
         : await register(email.trim(), password);
-      if (!result.success) setError(result.error || t("common.error"));
+
+      if (!result.success) {
+        // Intercept raw API error strings for a friendlier localized message
+        if (result.error?.toLowerCase().includes("invalid credentials")) {
+          setError(t("auth.invalidCredentials"));
+        } else {
+          setError(result.error || t("common.error"));
+        }
+      }
     } catch {
       setError(t("auth.connectionError"));
     } finally {

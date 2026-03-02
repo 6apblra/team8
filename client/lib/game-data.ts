@@ -10,6 +10,16 @@ export const GAMES = [
   { id: "apex", name: "Apex Legends", icon: "apex" },
 ];
 
+export const GAME_ICONS: Record<string, string> = {
+  valorant: "crosshair",
+  cs2: "target",
+  dota2: "shield",
+  fortnite: "box",
+  lol: "award",
+  wot: "menu",
+  apex: "triangle",
+};
+
 export const RANKS = {
   valorant: [
     "Iron",

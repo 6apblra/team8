@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import {
   SectionList,
   StyleSheet,
@@ -15,6 +15,14 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useAuth } from "@/lib/auth-context";
 import { useWebSocketMessages } from "@/lib/websocket";
 import { ThemedText } from "@/components/ThemedText";
@@ -83,6 +91,37 @@ function NewMatchBubble({
   );
 }
 
+// ─── Animated Empty Icon ──────────────────────────────────────────────────────
+function AnimatedEmptyIcon({ color, secondaryColor }: { color: string; secondaryColor: string }) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.06, { duration: 1500 }),
+        withTiming(1, { duration: 1500 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <LinearGradient
+        colors={[`${secondaryColor}30`, `${secondaryColor}08`]}
+        style={styles.emptyIconWrap}
+      >
+        <Feather name="heart" size={48} color={color} />
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
 export default function MatchesScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
@@ -141,9 +180,7 @@ export default function MatchesScreen() {
   if (matches.length === 0) {
     return (
       <ThemedView style={[styles.container, styles.centered, { paddingTop: headerHeight }]}>
-        <View style={[styles.emptyIconWrap, { borderColor: theme.border }]}>
-          <Feather name="heart" size={48} color={theme.textSecondary} />
-        </View>
+        <AnimatedEmptyIcon color={theme.textSecondary} secondaryColor={theme.secondary} />
         <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
           {t("matches.noMatchesTitle")}
         </ThemedText>
@@ -180,7 +217,7 @@ export default function MatchesScreen() {
               <View style={styles.sectionHeaderRow}>
                 <View style={[styles.sectionDot, { backgroundColor: theme.secondary }]} />
                 <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>
-                  New Matches
+                  {t("matches.newMatches")}
                 </ThemedText>
                 <View style={[styles.sectionCount, { backgroundColor: `${theme.secondary}20` }]}>
                   <ThemedText style={[styles.sectionCountText, { color: theme.secondary }]}>
@@ -211,7 +248,7 @@ export default function MatchesScreen() {
             <View style={[styles.sectionHeaderRow, styles.sectionHeaderMessages, { backgroundColor: theme.backgroundRoot }]}>
               <View style={[styles.sectionDot, { backgroundColor: theme.primary }]} />
               <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>
-                Messages
+                {t("matches.messages")}
               </ThemedText>
               {conversations.some((c) => c.unreadCount > 0) && (
                 <View style={[styles.sectionCount, { backgroundColor: `${theme.primary}20` }]}>
@@ -247,7 +284,7 @@ export default function MatchesScreen() {
             <View style={[styles.noConversationsHint, { borderColor: theme.border }]}>
               <Feather name="message-circle" size={20} color={theme.textSecondary} />
               <ThemedText style={[styles.noConversationsText, { color: theme.textSecondary }]}>
-                No messages yet — tap a match to say hi!
+                {t("matches.noMessagesHint")}
               </ThemedText>
             </View>
           ) : null
@@ -267,10 +304,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyIconWrap: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 1.5,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,

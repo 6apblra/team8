@@ -130,3 +130,67 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+// ─── Shadow Presets ──────────────────────────────────────────────────────────
+export const Shadows = {
+  card: {
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  cardSubtle: {
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  glow: (color: string) => ({
+    shadowColor: color,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  }),
+  neon: (color: string) => ({
+    shadowColor: color,
+    shadowOpacity: 0.7,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 12,
+  }),
+};
+
+// ─── Glass / Blur helpers ────────────────────────────────────────────────────
+export const Glass = {
+  dark: {
+    background: "rgba(10, 14, 26, 0.65)",
+    border: "rgba(255, 255, 255, 0.08)",
+  },
+  light: {
+    background: "rgba(255, 255, 255, 0.55)",
+    border: "rgba(0, 0, 0, 0.06)",
+  },
+  pill: {
+    background: "rgba(255, 255, 255, 0.10)",
+    border: "rgba(255, 255, 255, 0.15)",
+  },
+};
+
+// ─── Gradient Presets ────────────────────────────────────────────────────────
+export const Gradients = {
+  primary: ["#00D9FF", "#0891B2"] as const,
+  secondary: ["#B857FF", "#9333EA"] as const,
+  accent: ["#B857FF", "#00D9FF"] as const,
+  success: ["#00FF88", "#059669"] as const,
+  danger: ["#FF3366", "#DC2626"] as const,
+  premium: ["#B857FF", "#00D9FF", "#00FF88"] as const,
+  cardOverlay: [
+    "transparent",
+    "rgba(0,0,0,0.25)",
+    "rgba(0,0,0,0.75)",
+    "rgba(0,0,0,0.95)",
+  ] as const,
+};

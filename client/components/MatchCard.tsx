@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -85,6 +86,16 @@ export function MatchCard({
         },
       ]}
     >
+      {/* Gradient accent strip on left for unread / new match */}
+      {(hasUnread || isNew) && (
+        <LinearGradient
+          colors={isNew ? [theme.secondary, theme.primary] : [theme.primary, theme.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.accentStrip}
+        />
+      )}
+
       {/* Avatar with ring */}
       <View style={styles.avatarWrap}>
         {hasUnread || isNew ? (
@@ -104,8 +115,11 @@ export function MatchCard({
         {(isAvailableNow || isOnline) && (
           <View style={[
             styles.onlineDot,
-            { backgroundColor: isAvailableNow ? "#B857FF" : "#00FF88",
-              borderColor: theme.backgroundRoot },
+            {
+              backgroundColor: isAvailableNow ? "#B857FF" : "#00FF88",
+              borderColor: theme.backgroundRoot,
+              shadowColor: isAvailableNow ? "#B857FF" : "#00FF88"
+            },
           ]} />
         )}
       </View>
@@ -123,7 +137,10 @@ export function MatchCard({
             {nickname}
           </ThemedText>
           {timestamp && (
-            <ThemedText style={[styles.time, { color: theme.textSecondary }]}>
+            <ThemedText style={[
+              styles.time,
+              { color: hasUnread ? theme.primary : theme.textSecondary },
+            ]}>
               {formatTime(timestamp)}
             </ThemedText>
           )}
@@ -141,8 +158,10 @@ export function MatchCard({
             <ThemedText
               style={[
                 styles.message,
-                { color: hasUnread ? theme.text : theme.textSecondary,
-                  fontWeight: hasUnread ? "500" : "400" },
+                {
+                  color: hasUnread ? theme.text : theme.textSecondary,
+                  fontWeight: hasUnread ? "500" : "400"
+                },
               ]}
               numberOfLines={1}
             >
@@ -154,7 +173,13 @@ export function MatchCard({
 
       {/* Unread badge */}
       {hasUnread && (
-        <View style={[styles.unreadBadge, { backgroundColor: theme.primary }]}>
+        <View style={[
+          styles.unreadBadge,
+          {
+            backgroundColor: theme.primary,
+            shadowColor: theme.primary
+          },
+        ]}>
           <ThemedText style={styles.unreadText}>
             {unreadCount > 99 ? "99+" : String(unreadCount)}
           </ThemedText>
@@ -174,10 +199,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md + 2,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     gap: Spacing.md,
+    overflow: "hidden",
+  },
+  accentStrip: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 3,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderBottomLeftRadius: BorderRadius.lg,
   },
   avatarWrap: {
     alignItems: "center",
@@ -192,6 +227,9 @@ const styles = StyleSheet.create({
     height: 13,
     borderRadius: 7,
     borderWidth: 2,
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
   },
   avatarRing: {
     width: 64,
@@ -216,7 +254,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   headerRow: {
     flexDirection: "row",
@@ -227,9 +265,11 @@ const styles = StyleSheet.create({
   nickname: {
     fontSize: 16,
     flex: 1,
+    letterSpacing: 0.1,
   },
   time: {
     fontSize: 12,
+    fontWeight: "500",
   },
   messageRow: {
     flexDirection: "row",
@@ -239,6 +279,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     flex: 1,
+    lineHeight: 20,
   },
   newMatchText: {
     fontSize: 14,
@@ -251,6 +292,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 5,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   unreadText: {
     fontSize: 11,

@@ -87,11 +87,13 @@ function GlowButton({
   color,
   size = "large",
   onPress,
+  accessibilityLabel,
 }: {
   icon: keyof typeof Feather.glyphMap;
   color: string;
   size?: "medium" | "large";
   onPress: () => void;
+  accessibilityLabel?: string;
 }) {
   const scale = useSharedValue(1);
 
@@ -127,10 +129,7 @@ function GlowButton({
             },
           ]}
         >
-          <Feather
-            name={icon}
-            size={iconSize}
-            color={color}
+          <Pressable
             onPress={() => {
               scale.value = withSpring(0.93, { damping: 18, stiffness: 260 });
               setTimeout(() => {
@@ -139,7 +138,12 @@ function GlowButton({
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onPress();
             }}
-          />
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole="button"
+            style={{ width: btnSize, height: btnSize, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Feather name={icon} size={iconSize} color={color} />
+          </Pressable>
         </Animated.View>
       </Animated.View>
     </Animated.View>
@@ -174,21 +178,28 @@ function UndoButton({
           },
         ]}
       >
-        <Feather
-          name="rotate-ccw"
-          size={20}
-          color={canUndo ? theme.warning : `${theme.textSecondary}55`}
+        <Pressable
           onPress={
             canUndo
               ? () => {
-                  scale.value = withSpring(0.92, { damping: 18 });
-                  setTimeout(() => { scale.value = withSpring(1, { damping: 18 }); }, 120);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onPress();
-                }
+                scale.value = withSpring(0.92, { damping: 18 });
+                setTimeout(() => { scale.value = withSpring(1, { damping: 18 }); }, 120);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onPress();
+              }
               : undefined
           }
-        />
+          disabled={!canUndo}
+          accessibilityLabel="Undo last swipe"
+          accessibilityRole="button"
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Feather
+            name="rotate-ccw"
+            size={20}
+            color={canUndo ? theme.warning : `${theme.textSecondary}55`}
+          />
+        </Pressable>
       </Animated.View>
       {isPremium && (
         <View style={[undoStyles.badge, { backgroundColor: theme.warning }]}>
@@ -471,14 +482,14 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
 
   // glow pulse
   const glowOpacity = useSharedValue(0);
-  const glowScale  = useSharedValue(1);
+  const glowScale = useSharedValue(1);
   useEffect(() => {
     if (isActive) {
       glowOpacity.value = withRepeat(withSequence(withTiming(0.45, { duration: 1100 }), withTiming(0.05, { duration: 1100 })), -1, true);
-      glowScale.value   = withRepeat(withSequence(withTiming(1.35, { duration: 1100 }), withTiming(1, { duration: 1100 })), -1, true);
+      glowScale.value = withRepeat(withSequence(withTiming(1.35, { duration: 1100 }), withTiming(1, { duration: 1100 })), -1, true);
     } else {
       glowOpacity.value = withTiming(0, { duration: 300 });
-      glowScale.value   = withTiming(1, { duration: 300 });
+      glowScale.value = withTiming(1, { duration: 300 });
     }
   }, [isActive]);
 
@@ -530,6 +541,8 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
       onPress={handlePress}
       onLongPress={() => navigation.navigate("Store")}
       delayLongPress={500}
+      accessibilityLabel={isActive ? t("discover.boostActive") : t("discover.boost")}
+      accessibilityRole="button"
       style={[
         styles.nowPill,
         isActive && { borderColor: `${BOOST_COLOR}55`, backgroundColor: `${BOOST_COLOR}12` },
@@ -553,10 +566,10 @@ function BoostWidget({ theme, t }: { theme: any; t: any }) {
 
 const DURATIONS = [
   { label: "30m", minutes: 30 },
-  { label: "1h",  minutes: 60 },
+  { label: "1h", minutes: 60 },
   { label: "1.5h", minutes: 90 },
-  { label: "2h",  minutes: 120 },
-  { label: "3h",  minutes: 180 },
+  { label: "2h", minutes: 120 },
+  { label: "3h", minutes: 180 },
 ];
 
 function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
@@ -670,6 +683,8 @@ function PlayingNowWidget({ theme, t }: { theme: any; t: any }) {
         onPress={handleQuickToggle}
         onLongPress={() => setShowModal(true)}
         delayLongPress={400}
+        accessibilityLabel={isActive ? t("discover.playingNowActive") : t("discover.playingNow")}
+        accessibilityRole="button"
         style={[
           styles.nowPill,
           isActive && { borderColor: `${theme.success}55`, backgroundColor: `${theme.success}12` },
@@ -797,7 +812,7 @@ export default function DiscoverScreen() {
             setFilters(null);
           }
         } catch (error) {
-          console.error("Failed to load filters:", error);
+          console.warn("Failed to load filters:", error);
         }
       };
       loadFilters();
@@ -1297,18 +1312,21 @@ export default function DiscoverScreen() {
             color="#FF3366"
             size="large"
             onPress={() => handleButtonSwipe("left")}
+            accessibilityLabel={t("a11y.nope")}
           />
           <GlowButton
             icon="star"
             color="#FFD700"
             size="medium"
             onPress={() => handleButtonSwipe("up")}
+            accessibilityLabel={t("a11y.superLike")}
           />
           <GlowButton
             icon="heart"
             color="#00FF88"
             size="large"
             onPress={() => handleButtonSwipe("right")}
+            accessibilityLabel={t("a11y.like")}
           />
           <UndoButton
             canUndo={canUndo}
@@ -1398,17 +1416,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: Spacing["2xl"],
+    gap: Spacing["3xl"],
     paddingTop: Spacing.xl,
   },
   glowButton: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    borderWidth: 2,
+    shadowOpacity: 0.6,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 10,
   },
   glowButtonInner: {
     alignItems: "center",

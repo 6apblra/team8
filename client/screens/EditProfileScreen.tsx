@@ -45,7 +45,7 @@ function AnimatedInput({
   theme,
   multiline,
   ...props
-}: { theme: any; multiline?: boolean; [key: string]: any }) {
+}: { theme: any; multiline?: boolean;[key: string]: any }) {
   const focused = useSharedValue(0);
 
   const containerStyle = useAnimatedStyle(() => ({
@@ -304,9 +304,7 @@ export default function EditProfileScreen() {
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.85,
     });
 
     if (result.canceled) return;
@@ -317,11 +315,18 @@ export default function EditProfileScreen() {
       const token = await (await import("@/lib/api-client")).getToken();
       const formData = new FormData();
       const uri = asset.uri;
-      const ext = uri.split(".").pop() || "jpg";
+      const ext = (uri.split(".").pop() || "jpg").toLowerCase();
+      const mimeMap: Record<string, string> = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+      };
       formData.append("avatar", {
         uri,
         name: `avatar.${ext}`,
-        type: `image/${ext === "jpg" ? "jpeg" : ext}`,
+        type: mimeMap[ext] || "image/jpeg",
       } as any);
 
       const res = await fetch(`${getBaseUrl()}/api/avatar`, {
@@ -403,6 +408,16 @@ export default function EditProfileScreen() {
           onPick={pickAvatar}
           theme={theme}
         />
+        <ThemedText
+          style={{
+            textAlign: "center",
+            fontSize: 12,
+            color: theme.textSecondary,
+            marginTop: -Spacing.sm,
+          }}
+        >
+          {t("editProfile.gifHint")}
+        </ThemedText>
 
         <View style={styles.field}>
           <SectionLabel label={t("onboarding.nickname")} theme={theme} />
@@ -467,7 +482,7 @@ export default function EditProfileScreen() {
                   {t("onboarding.microphone")}
                 </ThemedText>
                 <ThemedText style={{ fontSize: 12, color: theme.textSecondary }}>
-                  {micEnabled ? "Voice chat enabled" : "Voice chat off"}
+                  {micEnabled ? t("editProfile.voiceChatOn") : t("editProfile.voiceChatOff")}
                 </ThemedText>
               </View>
             </View>

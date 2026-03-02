@@ -177,9 +177,9 @@ const srStyles = StyleSheet.create({
     gap: Spacing.md,
   },
   iconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -559,7 +559,7 @@ function DeleteAccountModal({ visible, onClose }: { visible: boolean; onClose: (
 const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0,0.65)",
     justifyContent: "flex-end",
   },
   sheet: {
@@ -808,6 +808,11 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   cardLabelRow: {
     flexDirection: "row",

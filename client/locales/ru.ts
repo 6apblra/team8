@@ -28,6 +28,7 @@ export default {
     fillAllFields: "Заполните все поля",
     passwordsMismatch: "Пароли не совпадают",
     passwordMinLength: "Пароль должен содержать минимум 6 символов",
+    invalidCredentials: "Неверный email или пароль",
     connectionError: "Ошибка соединения. Попробуйте ещё раз.",
     footer: "Продолжая, вы соглашаетесь с Условиями использования и Политикой конфиденциальности",
   },
@@ -107,11 +108,17 @@ export default {
   matches: {
     noMatchesTitle: "Пока нет совпадений",
     noMatchesSubtitle: "Продолжайте свайпать, чтобы найти тиммейтов!",
+    newMatches: "Новые совпадения",
+    messages: "Сообщения",
+    noMessagesHint: "Пока нет сообщений — нажмите на совпадение, чтобы написать!",
   },
 
   profile: {
     micOn: "Микрофон вкл.",
     games: "Игры",
+    gamesCount: "{{count}} игр",
+    mainGame: "Основная",
+    player: "Игрок",
     addGames: "Добавьте игры для поиска тиммейтов",
     details: "Подробности",
     languagesLabel: "Языки",
@@ -140,6 +147,7 @@ export default {
     startConversation: "Начните общение!",
     isTyping: "{{name}} печатает...",
     messagePlaceholder: "Введите сообщение...",
+    online: "в сети",
     reportUser: "Пожаловаться",
     reportWhy: "Почему вы жалуетесь на этого пользователя?",
     blockUser: "Заблокировать",
@@ -165,6 +173,9 @@ export default {
     selectRegion: "Выберите регион",
     failedUpdate: "Не удалось обновить профиль. Попробуйте ещё раз.",
     failedUpload: "Не удалось загрузить аватар",
+    gifHint: "💡 Можно использовать GIF для анимированного аватара",
+    voiceChatOn: "Голосовой чат включён",
+    voiceChatOff: "Голосовой чат выключен",
   },
 
   editGames: {
@@ -276,6 +287,35 @@ export default {
     disclaimer: "Цены указаны в демонстрационных целях. Реальные платежи не обрабатываются.",
     boostErrorTitle: "Ошибка буста",
     boostErrorBody: "Не удалось активировать буст. Попробуйте ещё раз.",
+  },
+
+  swipeCard: {
+    superLikedYou: "Супер-лайк от вас",
+    matchPercent: "{{score}}% совпадение",
+    ready: "Готов",
+    online: "Онлайн",
+    mic: "Микр.",
+  },
+
+  bottomSheet: {
+    compatibility: "{{score}}% совместимость",
+    games: "Игры",
+    availability: "Расписание",
+    social: "Связь",
+    like: "Лайк",
+  },
+
+  a11y: {
+    like: "Нравится",
+    nope: "Пропустить",
+    superLike: "Супер-лайк",
+    undo: "Отменить свайп",
+    sendMessage: "Отправить сообщение",
+    moreOptions: "Ещё",
+    editAvatar: "Изменить фото профиля",
+    profileInfo: "Посмотреть полный профиль",
+    boost: "Переключить буст",
+    playingNow: "Переключить статус игры",
   },
 
   gameData: {

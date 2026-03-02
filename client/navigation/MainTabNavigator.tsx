@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
@@ -143,12 +144,36 @@ export default function MainTabNavigator() {
           },
           tabBarBackground: () =>
             Platform.OS === "ios" ? (
-              <BlurView
-                intensity={100}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : null,
+              <View style={StyleSheet.absoluteFill}>
+                <BlurView
+                  intensity={120}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* Neon gradient line at the top */}
+                <LinearGradient
+                  colors={[`${theme.primary}60`, `${theme.secondary}60`, `${theme.primary}60`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={tabStyles.topLine}
+                />
+              </View>
+            ) : (
+              <View style={StyleSheet.absoluteFill}>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.backgroundRoot }]} />
+                <LinearGradient
+                  colors={[`${theme.primary}40`, `${theme.secondary}40`, `${theme.primary}40`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={tabStyles.topLine}
+                />
+              </View>
+            ),
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "600",
+            letterSpacing: 0.3,
+          },
           headerShown: false,
         }}
       >
@@ -188,5 +213,15 @@ export default function MainTabNavigator() {
     </View>
   );
 }
+
+const tabStyles = StyleSheet.create({
+  topLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+  },
+});
 
 const styles = StyleSheet.create({});

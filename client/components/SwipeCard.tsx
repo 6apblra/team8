@@ -11,6 +11,7 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { GameBadge } from "@/components/GameBadge";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { compatibilityColor } from "@/lib/compatibility";
 
@@ -71,6 +72,7 @@ export function SwipeCard({
   compatibilityScore,
 }: SwipeCardProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const likeOpacity = useAnimatedStyle(() => ({
     opacity: interpolate(translateX.value, [0, SCREEN_WIDTH / 4], [0, 1], "clamp"),
@@ -108,10 +110,10 @@ export function SwipeCard({
         contentFit="cover"
       />
 
-      {/* Bottom gradient overlay */}
+      {/* Bottom gradient overlay — deeper for better readability */}
       <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.85)", "rgba(0,0,0,0.97)"]}
-        locations={[0.3, 0.55, 0.78, 1]}
+        colors={["transparent", "rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.88)", "rgba(0,0,0,0.98)"]}
+        locations={[0.2, 0.4, 0.6, 0.8, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
@@ -120,7 +122,7 @@ export function SwipeCard({
       {superLikedMe && (
         <View style={styles.superLikedBanner}>
           <Feather name="star" size={13} color="#FFD700" />
-          <ThemedText style={styles.superLikedText}>Super Liked you</ThemedText>
+          <ThemedText style={styles.superLikedText}>{t("swipeCard.superLikedYou")}</ThemedText>
         </View>
       )}
 
@@ -134,7 +136,7 @@ export function SwipeCard({
           },
         ]}>
           <ThemedText style={[styles.compatText, { color: compatibilityColor(compatibilityScore) }]}>
-            {compatibilityScore}% match
+            {t("swipeCard.matchPercent", { score: String(compatibilityScore) })}
           </ThemedText>
         </View>
       )}
@@ -145,13 +147,13 @@ export function SwipeCard({
           {isAvailableNow && (
             <View style={[styles.statusBadge, styles.availableBadge]}>
               <Feather name="zap" size={11} color="#B857FF" />
-              <ThemedText style={[styles.statusText, { color: "#B857FF" }]}>Ready</ThemedText>
+              <ThemedText style={[styles.statusText, { color: "#B857FF" }]}>{t("swipeCard.ready")}</ThemedText>
             </View>
           )}
           {isOnline && (
             <View style={[styles.statusBadge, styles.onlineBadge]}>
               <View style={styles.onlineDot} />
-              <ThemedText style={[styles.statusText, { color: "#00FF88" }]}>Online</ThemedText>
+              <ThemedText style={[styles.statusText, { color: "#00FF88" }]}>{t("swipeCard.online")}</ThemedText>
             </View>
           )}
         </View>
@@ -183,6 +185,8 @@ export function SwipeCard({
       {onPressInfo && (
         <Pressable
           onPress={onPressInfo}
+          accessibilityLabel="View full profile"
+          accessibilityRole="button"
           style={styles.infoBtn}
           hitSlop={12}
         >
@@ -209,7 +213,7 @@ export function SwipeCard({
           {profile.micEnabled && (
             <View style={[styles.tag, styles.tagGreen]}>
               <Feather name="mic" size={12} color="#00FF88" />
-              <ThemedText style={[styles.tagText, { color: "#00FF88" }]}>Mic</ThemedText>
+              <ThemedText style={[styles.tagText, { color: "#00FF88" }]}>{t("swipeCard.mic")}</ThemedText>
             </View>
           )}
           {profile.languages && profile.languages.length > 0 && (
@@ -253,11 +257,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius["2xl"],
     overflow: "hidden",
     backgroundColor: "#0F1525",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
     shadowColor: "#000",
-    shadowOpacity: 0.5,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 16,
+    shadowOpacity: 0.6,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 20,
   },
   compatBadge: {
     position: "absolute",
@@ -419,10 +425,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   nickname: {
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   age: {
     fontSize: 20,
@@ -438,18 +447,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: BorderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   tagGreen: {
-    backgroundColor: "rgba(0,255,136,0.1)",
+    backgroundColor: "rgba(0,255,136,0.12)",
+    borderColor: "rgba(0,255,136,0.2)",
   },
   tagText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.75)",
+    color: "rgba(255,255,255,0.85)",
     letterSpacing: 0.3,
   },
   gamesRow: {
