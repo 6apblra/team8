@@ -406,12 +406,54 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     const blockedIds = await this.getBlockedUsers(userId);
-    const swipedUsers = await db
-      .select({ toUserId: swipes.toUserId })
+
+    // Get all swipes from this user to compute progressive left-swipe expiry
+    const allSwipes = await db
+      .select({
+        toUserId: swipes.toUserId,
+        swipeType: swipes.swipeType,
+        createdAt: swipes.createdAt,
+      })
       .from(swipes)
       .where(eq(swipes.fromUserId, userId));
-    const swipedIds = swipedUsers.map((s) => s.toUserId);
 
+    const nowMs = Date.now();
+    const FIVE_DAYS = 5 * 24 * 60 * 60 * 1000;
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    // Like/super → always excluded (they're in matches or pending)
+    const permanentlyExcluded = new Set(
+      allSwipes
+        .filter((s) => s.swipeType === "like" || s.swipeType === "super")
+        .map((s) => s.toUserId)
+    );
+
+    // Left swipes → group by toUserId, count times, check expiry
+    const leftSwipesByUser = new Map<string, { count: number; lastAt: Date }>();
+    for (const s of allSwipes) {
+      if (s.swipeType !== "left") continue;
+      const existing = leftSwipesByUser.get(s.toUserId);
+      if (!existing || (s.createdAt && s.createdAt > existing.lastAt)) {
+        leftSwipesByUser.set(s.toUserId, {
+          count: (existing?.count || 0) + 1,
+          lastAt: s.createdAt || new Date(),
+        });
+      } else {
+        existing.count++;
+      }
+    }
+
+    // Determine which left-swiped users are still in cooldown
+    const activeLeftExcluded = new Set<string>();
+    for (const [targetId, { count, lastAt }] of leftSwipesByUser) {
+      if (permanentlyExcluded.has(targetId)) continue;
+      const cooldown = count >= 4 ? THIRTY_DAYS : FIVE_DAYS;
+      if (nowMs - lastAt.getTime() < cooldown) {
+        activeLeftExcluded.add(targetId);
+      }
+    }
+
+    const swipedIds = [...permanentlyExcluded, ...activeLeftExcluded];
     const excludeIds = [...blockedIds, ...swipedIds, userId];
 
     const baseCondition =

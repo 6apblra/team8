@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { dailySwipeCounts, dailySuperLikeCounts, profiles } from "@shared/schema";
+import { dailySwipeCounts, dailySuperLikeCounts, profiles, swipes } from "@shared/schema";
 import { lt, and, eq, sql } from "drizzle-orm";
 import { log } from "./logger";
 
@@ -9,6 +9,7 @@ const SIX_HOURS = 6 * 60 * 60 * 1000;
  * Periodic cleanup of stale data:
  * - Daily swipe/super-like counts older than 2 days
  * - Expired "available now" statuses
+ * - Left swipes older than 30 days (max cooldown expired)
  */
 async function runCleanup() {
     try {
@@ -34,8 +35,23 @@ async function runCleanup() {
                 )
             );
 
+        // Clean expired left swipes (older than 30 days — max cooldown)
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const leftSwipeResult = await db.delete(swipes)
+            .where(
+                and(
+                    eq(swipes.swipeType, "left"),
+                    lt(swipes.createdAt!, thirtyDaysAgo)
+                )
+            );
+
         log.info(
-            { swipes: swipeResult.rowCount, superLikes: superLikeResult.rowCount, availability: availResult.rowCount },
+            {
+                swipeCounts: swipeResult.rowCount,
+                superLikeCounts: superLikeResult.rowCount,
+                availability: availResult.rowCount,
+                expiredLeftSwipes: leftSwipeResult.rowCount,
+            },
             "Cleanup completed"
         );
     } catch (error) {
