@@ -149,6 +149,29 @@ export function setupWebSocket(server: Server, sessionParser: any) {
     }
   });
 
+  // Heartbeat: ping every 30s, terminate if no pong within 30s
+  const aliveMap = new Map<WebSocket, boolean>();
+
+  wss.on("connection", (ws) => {
+    aliveMap.set(ws, true);
+    ws.on("pong", () => aliveMap.set(ws, true));
+    ws.on("close", () => aliveMap.delete(ws));
+  });
+
+  const heartbeat = setInterval(() => {
+    for (const ws of (wss as any).clients as Set<WebSocket>) {
+      if (aliveMap.get(ws) === false) {
+        log.info("Terminating dead WebSocket connection");
+        ws.terminate();
+        continue;
+      }
+      aliveMap.set(ws, false);
+      ws.ping();
+    }
+  }, 30_000);
+
+  wss.on("close", () => clearInterval(heartbeat));
+
   return wss;
 }
 
