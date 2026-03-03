@@ -13,6 +13,8 @@ import pinoHttp from "pino-http";
 import helmet from "helmet";
 import compression from "compression";
 import { randomUUID } from "crypto";
+import { validateEnv } from "./env";
+import { startCleanupJob } from "./cleanup";
 
 const app = express();
 let sessionMiddleware!: express.RequestHandler;
@@ -268,6 +270,7 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  validateEnv();
   app.set("trust proxy", 1);
   setupCors(app);
   app.use(compression());
@@ -292,6 +295,8 @@ function setupErrorHandler(app: express.Application) {
     log.info(`express server serving on port ${port}`);
   });
   server.setTimeout(30_000); // 30s request timeout
+
+  startCleanupJob();
 
   // Graceful shutdown
   const shutdown = (signal: string) => {
