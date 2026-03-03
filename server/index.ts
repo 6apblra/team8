@@ -10,6 +10,7 @@ import * as path from "path";
 import { apiLimiter } from "./middleware";
 import { log } from "./logger";
 import pinoHttp from "pino-http";
+import helmet from "helmet";
 
 const app = express();
 let sessionMiddleware!: express.RequestHandler;
@@ -27,6 +28,12 @@ declare module "express-session" {
 }
 
 function setupCors(app: express.Application) {
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // Allow inline styles/scripts for Expo
+    crossOriginEmbedderPolicy: false, // Allow cross-origin loading for mobile
+  }));
+
   app.use((req, res, next) => {
     const origins = new Set<string>();
 

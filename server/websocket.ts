@@ -25,6 +25,22 @@ interface UserConnection {
 const connections = new Map<string, UserConnection>();
 const matchSubscribers = new Map<string, Set<string>>();
 
+// WebSocket rate limiting: max 30 messages per 10 seconds per user
+const WS_RATE_LIMIT = 30;
+const WS_RATE_WINDOW = 10_000;
+const wsRateMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkWsRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = wsRateMap.get(userId);
+  if (!entry || now > entry.resetAt) {
+    wsRateMap.set(userId, { count: 1, resetAt: now + WS_RATE_WINDOW });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= WS_RATE_LIMIT;
+}
+
 function parseSessionCookie(cookieHeader: string | undefined): string | null {
   if (!cookieHeader) return null;
   const cookies = cookieHeader.split(";").reduce(
@@ -84,6 +100,10 @@ export function setupWebSocket(server: Server, sessionParser: any) {
       );
 
       ws.on("message", async (data: Buffer) => {
+        if (!checkWsRateLimit(userId!)) {
+          ws.send(JSON.stringify({ type: "error", message: "Rate limited" }));
+          return;
+        }
         try {
           const raw = JSON.parse(data.toString());
           const message = wsMessageSchema.parse(raw) as ChatMessage;

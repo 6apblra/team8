@@ -30,6 +30,8 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, sql, desc, ne, notInArray, inArray, gt } from "drizzle-orm";
+import path from "path";
+import fs from "fs";
 
 export interface ReactionSummary {
   emoji: string;
@@ -261,6 +263,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    // Clean up avatar file from disk
+    const profile = await this.getProfile(userId);
+    if (profile?.avatarUrl) {
+      const filename = profile.avatarUrl.split("/").pop();
+      if (filename) {
+        const filePath = path.join(process.cwd(), "server", "uploads", filename);
+        fs.unlink(filePath, () => { }); // Best-effort, ignore errors
+      }
+    }
+
     // Delete in order of dependencies
     await db.delete(reactions).where(
       inArray(reactions.messageId,
