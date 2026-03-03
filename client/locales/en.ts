@@ -161,6 +161,7 @@ export default {
     failedReport: "Failed to submit report. Please try again.",
     failedBlock: "Failed to block user. Please try again.",
     failedSend: "Failed to send message. Please try again.",
+    loadMore: "Load earlier messages",
     reportInappropriate: "Inappropriate Content",
     reportHarassment: "Harassment",
     reportSpam: "Spam",

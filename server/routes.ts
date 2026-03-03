@@ -767,10 +767,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             match.user1Id === userId ? match.user2Id : match.user1Id;
           const profile = await storage.getProfile(otherUserId);
           const userGames = await storage.getUserGames(otherUserId);
-          const messages = await storage.getMessages(match.id);
+          const { messages } = await storage.getMessages(match.id);
           const lastMessage = messages[messages.length - 1];
           const unreadCount = messages.filter(
-            (m) => !m.isRead && m.senderId !== userId,
+            (m: any) => !m.isRead && m.senderId !== userId,
           ).length;
 
           const isOnline = profile?.lastSeenAt
@@ -804,6 +804,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.session.userId!;
       const { matchId } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const before = (req.query.before as string) || undefined;
 
       const match = await storage.getMatch(matchId);
       if (!match) {
@@ -814,10 +816,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const matchMessages = await storage.getMessages(matchId);
+      const result = await storage.getMessages(matchId, limit, before);
       await storage.markMessagesAsRead(matchId, userId);
 
-      return res.json(matchMessages);
+      return res.json(result);
     } catch (error) {
       log.error({ err: error }, "Get messages error");
       return res.status(500).json({ error: "Failed to fetch messages" });

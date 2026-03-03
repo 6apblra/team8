@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
@@ -49,6 +49,11 @@ interface Message {
   content: string;
   isRead: boolean;
   createdAt: string;
+}
+
+interface MessagesPage {
+  messages: Message[];
+  hasMore: boolean;
 }
 
 type ListItem =
@@ -144,7 +149,7 @@ export default function ChatScreen() {
 
   const [message, setMessage] = useState("");
   const [showQuickMessages, setShowQuickMessages] = useState(true);
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [newMessages, setNewMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -154,22 +159,52 @@ export default function ChatScreen() {
     t(`gameData.quickMessages.${key}`),
   );
 
-  const { data: fetchedMessages = [], isLoading } = useQuery<Message[]>({
+  const PAGE_SIZE = 50;
+
+  // Paginated message fetching
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<MessagesPage>({
     queryKey: ["/api/messages", matchId],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (pageParam) params.set("before", pageParam as string);
+      return apiRequest<MessagesPage>("GET", `/api/messages/${matchId}?${params}`);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore || lastPage.messages.length === 0) return undefined;
+      return lastPage.messages[0]?.id;
+    },
     enabled: !!matchId,
-    refetchInterval: false,
   });
 
+  // Flatten paginated messages (oldest → newest)
+  const paginatedMessages = React.useMemo(() => {
+    if (!data?.pages) return [];
+    const allPages = [...data.pages].reverse();
+    return allPages.flatMap((page) => page.messages);
+  }, [data]);
+
+  // Combined: paginated + new WS messages
+  const allMessages = React.useMemo(() => {
+    const paginatedIds = new Set(paginatedMessages.map((m) => m.id));
+    const uniqueNew = newMessages.filter((m) => !paginatedIds.has(m.id));
+    return [...paginatedMessages, ...uniqueNew];
+  }, [paginatedMessages, newMessages]);
+
   useEffect(() => {
-    if (fetchedMessages.length > 0) {
-      setLocalMessages(fetchedMessages);
-      // REST call already marks as read server-side; also notify via WS
+    if (paginatedMessages.length > 0) {
       wsManager.send({ type: "read", matchId });
       queryClient.invalidateQueries({ queryKey: ["/api/matches", user?.id] });
     }
-  }, [fetchedMessages.length]);
+  }, [paginatedMessages.length > 0]);
 
-  const allMessages = localMessages;
+
 
   // Build list items with date separators and grouping info
   const listItems = React.useMemo((): ListItem[] => {
@@ -212,7 +247,7 @@ export default function ChatScreen() {
       if (msg.matchId !== matchId) return;
       switch (msg.type) {
         case "new_message":
-          setLocalMessages((prev) => {
+          setNewMessages((prev) => {
             const exists = prev.some((m) => m.id === msg.message.id);
             if (exists) return prev;
             return [...prev, msg.message];
@@ -227,7 +262,7 @@ export default function ChatScreen() {
         case "messages_read":
           // Other user read our messages — mark all our sent messages as read
           if (msg.readBy !== user?.id) {
-            setLocalMessages((prev) =>
+            setNewMessages((prev) =>
               prev.map((m) =>
                 m.senderId === user?.id ? { ...m, isRead: true } : m,
               ),
@@ -377,7 +412,7 @@ export default function ChatScreen() {
         matchId,
         content,
       });
-      setLocalMessages((prev) => {
+      setNewMessages((prev) => {
         const exists = prev.some((m) => m.id === newMessage.id);
         if (exists) return prev;
         return [...prev, newMessage];
@@ -390,7 +425,7 @@ export default function ChatScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [message, isSending, matchId, user?.id, queryClient, sendTypingIndicator, t]);
+  }, [message, isSending, matchId, queryClient, sendTypingIndicator, t]);
 
   const handleQuickMessage = useCallback(
     async (quickMessage: string) => {
@@ -401,7 +436,7 @@ export default function ChatScreen() {
           matchId,
           content: quickMessage,
         });
-        setLocalMessages((prev) => {
+        setNewMessages((prev) => {
           const exists = prev.some((m) => m.id === newMessage.id);
           if (exists) return prev;
           return [...prev, newMessage];
@@ -442,6 +477,22 @@ export default function ChatScreen() {
             styles.messagesList,
             { paddingTop: Spacing.lg },
           ]}
+          ListHeaderComponent={
+            hasNextPage ? (
+              <Pressable
+                onPress={() => fetchNextPage()}
+                style={[styles.loadMoreBtn, { backgroundColor: theme.backgroundSecondary }]}
+              >
+                {isFetchingNextPage ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <ThemedText style={{ color: theme.primary, fontWeight: "600", fontSize: 13 }}>
+                    {t("chat.loadMore") || "Load earlier messages"}
+                  </ThemedText>
+                )}
+              </Pressable>
+            ) : null
+          }
           renderItem={({ item }) => {
             if (item.type === "date") {
               return <DateSeparator date={item.date} />;
@@ -650,6 +701,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     paddingHorizontal: Spacing["3xl"],
+  },
+
+  loadMoreBtn: {
+    alignSelf: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.md,
   },
 
   // Typing

@@ -173,7 +173,7 @@ export interface IStorage {
   getMatch(matchId: string): Promise<Match | undefined>;
   getMatchByUsers(user1Id: string, user2Id: string): Promise<Match | undefined>;
 
-  getMessages(matchId: string): Promise<(Message & { reactions: ReactionSummary[] })[]>;
+  getMessages(matchId: string, limit?: number, before?: string): Promise<{ messages: (Message & { reactions: ReactionSummary[] })[]; hasMore: boolean }>;
   getMessageById(messageId: string): Promise<Message | undefined>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessagesAsRead(matchId: string, userId: string): Promise<void>;
@@ -710,15 +710,37 @@ export class DatabaseStorage implements IStorage {
     return match || undefined;
   }
 
-  async getMessages(matchId: string): Promise<(Message & { reactions: ReactionSummary[] })[]> {
+  async getMessages(matchId: string, limit = 50, before?: string): Promise<{ messages: (Message & { reactions: ReactionSummary[] })[]; hasMore: boolean }> {
+    const conditions = [eq(messages.matchId, matchId)];
+
+    if (before) {
+      // Get the cursor message's createdAt
+      const [cursorMsg] = await db.select({ createdAt: messages.createdAt }).from(messages).where(eq(messages.id, before));
+      if (cursorMsg) {
+        conditions.push(sql`${messages.createdAt} < ${cursorMsg.createdAt}`);
+      }
+    }
+
+    // Fetch limit+1 to determine hasMore
     const msgs = await db
       .select()
       .from(messages)
-      .where(eq(messages.matchId, matchId))
-      .orderBy(messages.createdAt);
-    const msgIds = msgs.map((m) => m.id);
+      .where(and(...conditions))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit + 1);
+
+    const hasMore = msgs.length > limit;
+    const page = hasMore ? msgs.slice(0, limit) : msgs;
+
+    // Reverse to chronological order (oldest first)
+    page.reverse();
+
+    const msgIds = page.map((m) => m.id);
     const reactionMap = await this.getMessageReactions(msgIds);
-    return msgs.map((m) => ({ ...m, reactions: reactionMap[m.id] || [] }));
+    return {
+      messages: page.map((m) => ({ ...m, reactions: reactionMap[m.id] || [] })),
+      hasMore,
+    };
   }
 
   async getMessageById(messageId: string): Promise<Message | undefined> {
