@@ -359,8 +359,9 @@ export default function EditProfileScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       navigation.goBack();
     },
-    onError: () => {
-      Alert.alert(t("common.error"), t("editProfile.failedUpdate"));
+    onError: (error: any) => {
+      const msg = error?.message || t("editProfile.failedUpdate");
+      Alert.alert(t("common.error"), msg);
     },
   });
 

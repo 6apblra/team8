@@ -13,6 +13,7 @@ type MessageHandler = (message: WebSocketMessage) => void;
 class WebSocketManager {
   private ws: WebSocket | null = null;
   private handlers: Set<MessageHandler> = new Set();
+  private connectionChangeHandlers: Set<(connected: boolean) => void> = new Set();
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private isConnecting = false;
   private shouldReconnect = true;
@@ -46,6 +47,7 @@ class WebSocketManager {
         console.log("WebSocket connected");
         this.isConnecting = false;
         this.reconnectAttempts = 0;
+        this.notifyConnectionChange(true);
       };
 
       this.ws.onmessage = (event) => {
@@ -61,6 +63,7 @@ class WebSocketManager {
         console.log("WebSocket disconnected");
         this.isConnecting = false;
         this.ws = null;
+        this.notifyConnectionChange(false);
 
         if (this.shouldReconnect) {
           this.scheduleReconnect();
@@ -133,22 +136,29 @@ class WebSocketManager {
   get isConnected() {
     return this.ws?.readyState === WebSocket.OPEN;
   }
+
+  private notifyConnectionChange(connected: boolean) {
+    this.connectionChangeHandlers.forEach((handler) => handler(connected));
+  }
+
+  onConnectionChange(handler: (connected: boolean) => void) {
+    this.connectionChangeHandlers.add(handler);
+    return () => { this.connectionChangeHandlers.delete(handler); };
+  }
 }
 
 export const wsManager = new WebSocketManager();
 
 export function useWebSocket() {
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(wsManager.isConnected);
 
   useEffect(() => {
     wsManager.connect();
 
-    const checkConnection = setInterval(() => {
-      setIsConnected(wsManager.isConnected);
-    }, 1000);
+    const unsubscribe = wsManager.onConnectionChange(setIsConnected);
 
     return () => {
-      clearInterval(checkConnection);
+      unsubscribe();
     };
   }, []);
 

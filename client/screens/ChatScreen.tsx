@@ -375,7 +375,6 @@ export default function ChatScreen() {
     try {
       const newMessage = await apiRequest<Message>("POST", "/api/messages", {
         matchId,
-        senderId: user?.id,
         content,
       });
       setLocalMessages((prev) => {
@@ -400,7 +399,6 @@ export default function ChatScreen() {
       try {
         const newMessage = await apiRequest<Message>("POST", "/api/messages", {
           matchId,
-          senderId: user?.id,
           content: quickMessage,
         });
         setLocalMessages((prev) => {
