@@ -36,10 +36,8 @@ run_test "TypeScript type checking" "npm run check:types"
 run_test "ESLint code quality" "npm run lint"
 run_test "Code formatting" "npm run check:format"
 
-# Backend тесты (если будут добавлены)
-if [ -f "backend/pytest.ini" ] || [ -f "backend/tests" ]; then
-    run_test "Backend unit tests" "cd backend && python -m pytest -q"
-fi
+# Unit tests
+run_test "Unit tests (vitest)" "npx vitest run"
 
 # Результаты
 echo ""
