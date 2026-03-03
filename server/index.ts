@@ -38,12 +38,14 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
-    // Local development
-    origins.add("http://localhost:8081"); // Expo web
-    origins.add("http://localhost:19006"); // Expo web alternative
-    origins.add("http://localhost:3000"); // React dev server
-    origins.add("http://127.0.0.1:8081");
-    origins.add("http://127.0.0.1:19006");
+    // Local development only
+    if (process.env.NODE_ENV !== "production") {
+      origins.add("http://localhost:8081"); // Expo web
+      origins.add("http://localhost:19006"); // Expo web alternative
+      origins.add("http://localhost:3000"); // React dev server
+      origins.add("http://127.0.0.1:8081");
+      origins.add("http://127.0.0.1:19006");
+    }
 
     // Production server origin
     if (process.env.EXPO_PUBLIC_API_URL) {

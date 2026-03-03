@@ -369,6 +369,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (profileData.nickname && wordFilter.containsBannedWord(profileData.nickname)) {
           return res.status(400).json({ error: "Nickname contains inappropriate language" });
         }
+        if (profileData.nickname) {
+          profileData.nickname = sanitizeHtml(profileData.nickname);
+        }
         // Censor bio
         if (profileData.bio) {
           profileData.bio = wordFilter.censor(sanitizeHtml(profileData.bio));
@@ -404,6 +407,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Moderate nickname
         if (updates.nickname && wordFilter.containsBannedWord(updates.nickname)) {
           return res.status(400).json({ error: "Nickname contains inappropriate language" });
+        }
+        if (updates.nickname) {
+          updates.nickname = sanitizeHtml(updates.nickname);
         }
         // Censor bio
         if (updates.bio) {

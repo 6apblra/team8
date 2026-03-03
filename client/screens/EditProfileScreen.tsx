@@ -427,6 +427,7 @@ export default function EditProfileScreen() {
             placeholder={t("onboarding.nicknamePlaceholder")}
             value={nickname}
             onChangeText={setNickname}
+            maxLength={30}
           />
         </View>
 
@@ -514,6 +515,7 @@ export default function EditProfileScreen() {
             value={bio}
             onChangeText={setBio}
             multiline
+            maxLength={300}
           />
         </View>
       </KeyboardAwareScrollViewCompat>
