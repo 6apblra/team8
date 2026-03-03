@@ -262,7 +262,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<void> {
     // Delete in order of dependencies
+    await db.delete(reactions).where(
+      inArray(reactions.messageId,
+        db.select({ id: messages.id }).from(messages).where(eq(messages.senderId, userId))
+      )
+    );
     await db.delete(messages).where(eq(messages.senderId, userId));
+    await db.delete(reviews).where(
+      or(eq(reviews.reviewerId, userId), eq(reviews.reviewedUserId, userId))
+    );
     await db.delete(matches).where(
       or(eq(matches.user1Id, userId), eq(matches.user2Id, userId))
     );
@@ -407,105 +415,128 @@ export class DatabaseStorage implements IStorage {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const now = new Date();
 
-    const result = await Promise.all(
-      candidateProfiles.map(async (profile) => {
-        const candidateGames = await this.getUserGames(profile.userId);
-        const availability = await this.getAvailability(profile.userId);
+    // Batch-load all games and availability for candidates (replaces N+1 queries)
+    const candidateUserIds = candidateProfiles.map((p) => p.userId);
 
-        if (filters.gameId) {
-          const gameIds = Array.isArray(filters.gameId)
-            ? filters.gameId
-            : [filters.gameId];
-          if (!candidateGames.some((g) => gameIds.includes(g.gameId))) {
-            return null;
-          }
-        }
+    const [allCandidateGames, allCandidateAvailability] = await Promise.all([
+      candidateUserIds.length > 0
+        ? db.select().from(userGames).where(inArray(userGames.userId, candidateUserIds))
+        : Promise.resolve([]),
+      candidateUserIds.length > 0
+        ? db.select().from(availabilityWindows).where(inArray(availabilityWindows.userId, candidateUserIds))
+        : Promise.resolve([]),
+    ]);
 
-        if (filters.region) {
-          const regions = Array.isArray(filters.region)
-            ? filters.region
-            : [filters.region];
-          if (!regions.includes(profile.region)) {
-            return null;
-          }
-        }
+    // Build lookup maps
+    const gamesMap = new Map<string, UserGame[]>();
+    for (const g of allCandidateGames) {
+      if (!gamesMap.has(g.userId)) gamesMap.set(g.userId, []);
+      gamesMap.get(g.userId)!.push(g);
+    }
 
-        if (filters.language) {
-          const filterLang = Array.isArray(filters.language)
-            ? filters.language
-            : [filters.language];
-          const profileLangs = (profile.languages as string[]) || [];
-          if (!filterLang.some((fl) => profileLangs.includes(fl))) {
-            return null;
-          }
-        }
+    const availabilityMap = new Map<string, AvailabilityWindow[]>();
+    for (const a of allCandidateAvailability) {
+      if (!availabilityMap.has(a.userId)) availabilityMap.set(a.userId, []);
+      availabilityMap.get(a.userId)!.push(a);
+    }
 
-        if (filters.micRequired) {
-          if (!profile.micEnabled) {
-            return null;
-          }
-        }
+    const result = candidateProfiles.map((profile) => {
+      const candidateGames = gamesMap.get(profile.userId) || [];
+      const availability = availabilityMap.get(profile.userId) || [];
 
-        if (filters.playstyle) {
-          const playstyles = Array.isArray(filters.playstyle)
-            ? filters.playstyle
-            : [filters.playstyle];
-          if (
-            !candidateGames.some(
-              (g) => g.playstyle && playstyles.includes(g.playstyle),
-            )
-          ) {
-            return null;
-          }
-        }
-
-        if (filters.rankMin || filters.rankMax) {
-          const filterGameIds = filters.gameId
-            ? Array.isArray(filters.gameId)
-              ? filters.gameId
-              : [filters.gameId]
-            : null;
-          const matchingGames = filterGameIds
-            ? candidateGames.filter((g) => filterGameIds.includes(g.gameId))
-            : candidateGames;
-          const passesRank = matchingGames.some((g) => {
-            const idx = getRankIndex(g.gameId, g.rank);
-            if (idx === -1) return false;
-            if (filters.rankMin) {
-              const minIdx = getRankIndex(g.gameId, filters.rankMin);
-              if (minIdx !== -1 && idx < minIdx) return false;
-            }
-            if (filters.rankMax) {
-              const maxIdx = getRankIndex(g.gameId, filters.rankMax);
-              if (maxIdx !== -1 && idx > maxIdx) return false;
-            }
-            return true;
-          });
-          if (!passesRank) return null;
-        }
-
-        const isOnline = profile.lastSeenAt
-          ? profile.lastSeenAt > fiveMinutesAgo
-          : false;
-        const isAvailableNow =
-          (profile.isAvailableNow &&
-            profile.availableUntil &&
-            profile.availableUntil > now) ||
-          false;
-
-        if (filters.availableNowOnly && !isAvailableNow) {
+      if (filters.gameId) {
+        const gameIds = Array.isArray(filters.gameId)
+          ? filters.gameId
+          : [filters.gameId];
+        if (!candidateGames.some((g) => gameIds.includes(g.gameId))) {
           return null;
         }
+      }
 
-        return {
-          ...profile,
-          userGames: candidateGames,
-          availability,
-          isOnline,
-          isAvailableNow,
-        };
-      }),
-    );
+      if (filters.region) {
+        const regions = Array.isArray(filters.region)
+          ? filters.region
+          : [filters.region];
+        if (!regions.includes(profile.region)) {
+          return null;
+        }
+      }
+
+      if (filters.language) {
+        const filterLang = Array.isArray(filters.language)
+          ? filters.language
+          : [filters.language];
+        const profileLangs = (profile.languages as string[]) || [];
+        if (!filterLang.some((fl) => profileLangs.includes(fl))) {
+          return null;
+        }
+      }
+
+      if (filters.micRequired) {
+        if (!profile.micEnabled) {
+          return null;
+        }
+      }
+
+      if (filters.playstyle) {
+        const playstyles = Array.isArray(filters.playstyle)
+          ? filters.playstyle
+          : [filters.playstyle];
+        if (
+          !candidateGames.some(
+            (g) => g.playstyle && playstyles.includes(g.playstyle),
+          )
+        ) {
+          return null;
+        }
+      }
+
+      if (filters.rankMin || filters.rankMax) {
+        const filterGameIds = filters.gameId
+          ? Array.isArray(filters.gameId)
+            ? filters.gameId
+            : [filters.gameId]
+          : null;
+        const matchingGames = filterGameIds
+          ? candidateGames.filter((g) => filterGameIds.includes(g.gameId))
+          : candidateGames;
+        const passesRank = matchingGames.some((g) => {
+          const idx = getRankIndex(g.gameId, g.rank);
+          if (idx === -1) return false;
+          if (filters.rankMin) {
+            const minIdx = getRankIndex(g.gameId, filters.rankMin);
+            if (minIdx !== -1 && idx < minIdx) return false;
+          }
+          if (filters.rankMax) {
+            const maxIdx = getRankIndex(g.gameId, filters.rankMax);
+            if (maxIdx !== -1 && idx > maxIdx) return false;
+          }
+          return true;
+        });
+        if (!passesRank) return null;
+      }
+
+      const isOnline = profile.lastSeenAt
+        ? profile.lastSeenAt > fiveMinutesAgo
+        : false;
+      const isAvailableNow =
+        (profile.isAvailableNow &&
+          profile.availableUntil &&
+          profile.availableUntil > now) ||
+        false;
+
+      if (filters.availableNowOnly && !isAvailableNow) {
+        return null;
+      }
+
+      return {
+        ...profile,
+        userGames: candidateGames,
+        availability,
+        isOnline,
+        isAvailableNow,
+      };
+    });
 
     const filtered = result.filter((r) => r !== null) as (Profile & {
       userGames: UserGame[];

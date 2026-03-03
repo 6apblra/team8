@@ -256,13 +256,18 @@ export default function FiltersScreen() {
   useEffect(() => {
     AsyncStorage.getItem(FILTERS_KEY).then((stored) => {
       if (stored) {
-        const f: SavedFilters = JSON.parse(stored);
-        setSelectedGames(f.games || []);
-        setSelectedRegions(f.regions || []);
-        setSelectedLanguages(f.languages || []);
-        setMicRequired(f.micRequired || false);
-        setSelectedPlaystyles(f.playstyles || []);
-        setAvailableNowOnly(f.availableNowOnly || false);
+        try {
+          const f: SavedFilters = JSON.parse(stored);
+          setSelectedGames(f.games || []);
+          setSelectedRegions(f.regions || []);
+          setSelectedLanguages(f.languages || []);
+          setMicRequired(f.micRequired || false);
+          setSelectedPlaystyles(f.playstyles || []);
+          setAvailableNowOnly(f.availableNowOnly || false);
+        } catch {
+          // Corrupted data — reset filters
+          AsyncStorage.removeItem(FILTERS_KEY);
+        }
       }
     });
   }, []);
