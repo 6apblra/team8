@@ -4,6 +4,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-do-not-use-in-prod";
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
+// TODO: Token blacklist is stored in memory and lost on server restart.
+// For production, migrate to Redis or database-backed blacklist.
 const tokenBlacklist = new Set<string>();
 
 setInterval(

@@ -236,7 +236,7 @@ function setupErrorHandler(app: express.Application) {
 
     res.status(status).json({ message });
 
-    throw err;
+    log.error({ err, status }, "Unhandled error");
   });
 }
 

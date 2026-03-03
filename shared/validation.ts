@@ -79,7 +79,7 @@ export const sendMessageSchema = z.object({
   content: z
     .string()
     .min(1, "Message cannot be empty")
-    .max(1000, "Message too long"),
+    .max(500, "Message too long"),
 });
 
 // ============ Availability Schemas ============
@@ -105,6 +105,11 @@ export const reportSchema = z.object({
     "other",
   ]),
   details: z.string().max(500, "Details too long").optional(),
+});
+
+// ============ Block Schema ============
+export const blockUserSchema = z.object({
+  blockedUserId: z.string().uuid("Invalid user ID"),
 });
 
 // ============ Push Token Schema ============
@@ -170,3 +175,4 @@ export type PushTokenInput = z.infer<typeof pushTokenSchema>;
 export type AvailableNowInput = z.infer<typeof availableNowSchema>;
 export type FeedFiltersInput = z.infer<typeof feedFiltersSchema>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
+export type BlockUserInput = z.infer<typeof blockUserSchema>;

@@ -1,8 +1,14 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server, IncomingMessage } from "node:http";
+import { z } from "zod";
 import { storage, type ReactionSummary } from "./storage";
 import { verifyToken } from "./auth-utils";
 import { log } from "./logger";
+
+const wsMessageSchema = z.object({
+  type: z.enum(["typing", "stop_typing", "read"]),
+  matchId: z.string().min(1),
+});
 
 interface ChatMessage {
   type: "typing" | "stop_typing" | "read";
@@ -79,16 +85,16 @@ export function setupWebSocket(server: Server, sessionParser: any) {
 
       ws.on("message", async (data: Buffer) => {
         try {
-          const message: ChatMessage = JSON.parse(data.toString());
+          const raw = JSON.parse(data.toString());
+          const message = wsMessageSchema.parse(raw) as ChatMessage;
           await handleMessage(userId!, message);
-        } catch (error) {
-          log.error({ err: error }, "WebSocket message error");
-          ws.send(
-            JSON.stringify({
-              type: "error",
-              message: "Invalid message format",
-            }),
-          );
+        } catch (error: any) {
+          if (error.name === "ZodError") {
+            ws.send(JSON.stringify({ type: "error", message: "Invalid message format" }));
+          } else {
+            log.error({ err: error }, "WebSocket message error");
+            ws.send(JSON.stringify({ type: "error", message: "Invalid message format" }));
+          }
         }
       });
 

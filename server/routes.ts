@@ -25,6 +25,7 @@ import {
   blacklistToken,
 } from "./auth-utils";
 import { log } from "./logger";
+import { wordFilter } from "./word-filter";
 import {
   registerSchema,
   loginSchema,
@@ -41,6 +42,7 @@ import {
   feedFiltersSchema,
   availableNowSchema,
   createReviewSchema,
+  blockUserSchema,
 } from "@shared/validation";
 
 const SALT_ROUNDS = 10;
@@ -284,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         await storage.deleteUser(userId);
 
-        req.session.destroy(() => {});
+        req.session.destroy(() => { });
         log.info({ userId }, "Account deleted successfully");
         return res.json({ success: true });
       } catch (error) {
@@ -361,6 +363,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.session.userId!;
         const profileData = { ...req.body, userId };
 
+        // Moderate nickname
+        if (profileData.nickname && wordFilter.containsBannedWord(profileData.nickname)) {
+          return res.status(400).json({ error: "Nickname contains inappropriate language" });
+        }
+        // Censor bio
+        if (profileData.bio) {
+          profileData.bio = wordFilter.censor(profileData.bio);
+        }
+
         const existing = await storage.getProfile(userId);
         if (existing) {
           const updated = await storage.updateProfile(userId, profileData);
@@ -387,6 +398,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ error: "Forbidden" });
         }
         const updates = req.body;
+
+        // Moderate nickname
+        if (updates.nickname && wordFilter.containsBannedWord(updates.nickname)) {
+          return res.status(400).json({ error: "Nickname contains inappropriate language" });
+        }
+        // Censor bio
+        if (updates.bio) {
+          updates.bio = wordFilter.censor(updates.bio);
+        }
+
         const updated = await storage.updateProfile(userId, updates);
         if (!updated) {
           return res.status(404).json({ error: "Profile not found" });
@@ -627,9 +648,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 storage.getProfile(toUserId),
               ]).then(([fromProfile, toProfile]) => {
                 if (toProfile)
-                  notifyNewMatch(fromUserId, toProfile.nickname).catch(() => {});
+                  notifyNewMatch(fromUserId, toProfile.nickname).catch(() => { });
                 if (fromProfile)
-                  notifyNewMatch(toUserId, fromProfile.nickname).catch(() => {});
+                  notifyNewMatch(toUserId, fromProfile.nickname).catch(() => { });
               });
             }
           }
@@ -639,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sendToUser(toUserId, { type: "super_like", fromUserId });
           storage.getProfile(fromUserId).then((fromProfile) => {
             if (fromProfile) {
-              notifySuperLike(toUserId, fromProfile.nickname).catch(() => {});
+              notifySuperLike(toUserId, fromProfile.nickname).catch(() => { });
             }
           });
         }
@@ -810,10 +831,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const senderId = req.session.userId!;
-        const { matchId, content } = req.body;
+        const { matchId, content: rawContent } = req.body;
 
         if (!matchId)
           return res.status(400).json({ error: "matchId required" });
+
+        // Censor banned words in message content
+        const content = wordFilter.censor(rawContent);
 
         const match = await storage.getMatch(matchId);
         if (!match) {
@@ -837,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const senderProfile = await storage.getProfile(senderId);
         if (senderProfile) {
           notifyNewMessage(receiverId, senderProfile.nickname, content).catch(
-            () => {},
+            () => { },
           );
         }
 
@@ -870,15 +894,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/block", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const { blockedUserId } = req.body;
-
-      if (!blockedUserId) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
+      const { blockedUserId } = blockUserSchema.parse(req.body);
 
       await storage.blockUser(userId, blockedUserId);
       return res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
       log.error({ err: error }, "Block error");
       return res.status(500).json({ error: "Failed to block user" });
     }
