@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { games, users, profiles as profilesTable, userGames as userGamesTable } from "@shared/schema";
 import bcrypt from "bcrypt";
 import {
@@ -93,8 +93,13 @@ async function seedGames() {
 export async function registerRoutes(app: Express): Promise<Server> {
   await seedGames();
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", uptime: process.uptime() });
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ status: "ok", uptime: process.uptime(), db: "connected" });
+    } catch {
+      res.status(503).json({ status: "degraded", uptime: process.uptime(), db: "disconnected" });
+    }
   });
 
   app.post(

@@ -12,6 +12,7 @@ import { log } from "./logger";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
 import compression from "compression";
+import { randomUUID } from "crypto";
 
 const app = express();
 let sessionMiddleware!: express.RequestHandler;
@@ -120,7 +121,18 @@ function setupBodyParsing(app: express.Application) {
 }
 
 function setupRequestLogging(app: express.Application) {
-  app.use(pinoHttp({ logger: log }));
+  // Request ID middleware
+  app.use((req, res, next) => {
+    const requestId = (req.headers["x-request-id"] as string) || randomUUID();
+    (req as any).id = requestId;
+    res.setHeader("X-Request-Id", requestId);
+    next();
+  });
+
+  app.use(pinoHttp({
+    logger: log,
+    genReqId: (req) => (req as any).id,
+  }));
 }
 
 function getAppName(): string {
