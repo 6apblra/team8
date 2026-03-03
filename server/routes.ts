@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         // Censor bio
         if (profileData.bio) {
-          profileData.bio = wordFilter.censor(profileData.bio);
+          profileData.bio = wordFilter.censor(sanitizeHtml(profileData.bio));
         }
 
         const existing = await storage.getProfile(userId);
@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         // Censor bio
         if (updates.bio) {
-          updates.bio = wordFilter.censor(updates.bio);
+          updates.bio = wordFilter.censor(sanitizeHtml(updates.bio));
         }
 
         const updated = await storage.updateProfile(userId, updates);

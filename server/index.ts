@@ -11,6 +11,7 @@ import { apiLimiter } from "./middleware";
 import { log } from "./logger";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
+import compression from "compression";
 
 const app = express();
 let sessionMiddleware!: express.RequestHandler;
@@ -220,10 +221,14 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use("/assets", express.static(path.resolve(process.cwd(), "assets"), {
+    maxAge: "30d",
+  }));
   app.use(
     "/uploads",
-    express.static(path.resolve(process.cwd(), "server", "uploads")),
+    express.static(path.resolve(process.cwd(), "server", "uploads"), {
+      maxAge: "7d",
+    }),
   );
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
@@ -250,6 +255,7 @@ function setupErrorHandler(app: express.Application) {
 (async () => {
   app.set("trust proxy", 1);
   setupCors(app);
+  app.use(compression());
   setupSession(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
