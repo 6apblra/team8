@@ -174,6 +174,7 @@ export interface IStorage {
   getMatchByUsers(user1Id: string, user2Id: string): Promise<Match | undefined>;
 
   getMessages(matchId: string, limit?: number, before?: string): Promise<{ messages: (Message & { reactions: ReactionSummary[] })[]; hasMore: boolean }>;
+  getMatchMessageSummary(matchId: string, userId: string): Promise<{ lastMessage: Message | null; unreadCount: number }>;
   getMessageById(messageId: string): Promise<Message | undefined>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessagesAsRead(matchId: string, userId: string): Promise<void>;
@@ -746,6 +747,29 @@ export class DatabaseStorage implements IStorage {
   async getMessageById(messageId: string): Promise<Message | undefined> {
     const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
     return msg || undefined;
+  }
+
+  async getMatchMessageSummary(matchId: string, userId: string): Promise<{ lastMessage: Message | null; unreadCount: number }> {
+    const [lastMsg] = await db.select()
+      .from(messages)
+      .where(eq(messages.matchId, matchId))
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+
+    const [unreadResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.matchId, matchId),
+          eq(messages.isRead, false),
+          sql`${messages.senderId} != ${userId}`
+        )
+      );
+
+    return {
+      lastMessage: lastMsg || null,
+      unreadCount: unreadResult?.count ?? 0,
+    };
   }
 
   async toggleReaction(messageId: string, userId: string, emoji: string): Promise<"added" | "removed"> {

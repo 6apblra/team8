@@ -277,6 +277,7 @@ function setupErrorHandler(app: express.Application) {
   server.listen(port, "0.0.0.0", () => {
     log.info(`express server serving on port ${port}`);
   });
+  server.setTimeout(30_000); // 30s request timeout
 
   // Graceful shutdown
   const shutdown = (signal: string) => {

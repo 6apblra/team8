@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { log } from "@/lib/logger";
 import {
   View,
   StyleSheet,
@@ -812,7 +813,7 @@ export default function DiscoverScreen() {
             setFilters(null);
           }
         } catch (error) {
-          console.warn("Failed to load filters:", error);
+          log.warn("Failed to load filters:", error);
         }
       };
       loadFilters();

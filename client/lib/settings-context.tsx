@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getLocales } from "expo-localization";
 import i18n from "@/lib/i18n";
+import { log } from "@/lib/logger";
 
 const SETTINGS_KEY = "@teamup_settings";
 
@@ -63,7 +64,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         i18n.locale = resolveLocale(defaultSettings.language);
       }
     } catch (error) {
-      console.error("Failed to load settings:", error);
+      log.error("Failed to load settings:", error);
       i18n.locale = resolveLocale(defaultSettings.language);
     } finally {
       setIsLoading(false);
@@ -74,7 +75,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      log.error("Failed to save settings:", error);
     }
   };
 

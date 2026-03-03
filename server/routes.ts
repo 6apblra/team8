@@ -794,14 +794,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         m.user1Id === userId ? m.user2Id : m.user1Id,
       );
 
-      const [allProfiles, allUserGames, allMatchMessages] = await Promise.all([
+      const [allProfiles, allUserGames, allSummaries] = await Promise.all([
         otherUserIds.length > 0
           ? db.select().from(profilesTable).where(inArray(profilesTable.userId, otherUserIds))
           : Promise.resolve([]),
         otherUserIds.length > 0
           ? db.select().from(userGamesTable).where(inArray(userGamesTable.userId, otherUserIds))
           : Promise.resolve([]),
-        Promise.all(userMatches.map((m) => storage.getMessages(m.id))),
+        Promise.all(userMatches.map((m) => storage.getMatchMessageSummary(m.id, userId))),
       ]);
 
       const profilesMap = new Map(allProfiles.map((p: any) => [p.userId, p]));
@@ -816,11 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           match.user1Id === userId ? match.user2Id : match.user1Id;
         const profile = profilesMap.get(otherUserId);
         const userGames = gamesMap.get(otherUserId) || [];
-        const { messages } = allMatchMessages[i];
-        const lastMessage = messages[messages.length - 1];
-        const unreadCount = messages.filter(
-          (m: any) => !m.isRead && m.senderId !== userId,
-        ).length;
+        const { lastMessage, unreadCount } = allSummaries[i];
 
         const isOnline = profile?.lastSeenAt
           ? Date.now() - new Date(profile.lastSeenAt).getTime() < 5 * 60 * 1000

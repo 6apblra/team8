@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { api, getToken, removeToken } from "@/lib/api-client";
 import { wsManager } from "@/lib/websocket";
+import { log } from "@/lib/logger";
 
 interface User {
   id: string;
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileState(response.profile);
       }
     } catch (error) {
-      console.error("Session check failed:", error);
+      log.error("Session check failed:", error);
       await removeToken();
       setUser(null);
       setProfileState(null);
@@ -162,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileState(response.profile);
       }
     } catch (error) {
-      console.error("Failed to refresh profile:", error);
+      log.error("Failed to refresh profile:", error);
     }
   };
 

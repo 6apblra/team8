@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getToken } from "./api-client";
+import { log } from "./logger";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001";
 
@@ -31,7 +32,7 @@ class WebSocketManager {
     }
 
     if (!token) {
-      console.warn("No token available for WebSocket connection");
+      log.warn("No token available for WebSocket connection");
       return;
     }
 
@@ -44,7 +45,7 @@ class WebSocketManager {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log("WebSocket connected");
+        log.info("WebSocket connected");
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.notifyConnectionChange(true);
@@ -55,12 +56,12 @@ class WebSocketManager {
           const message = JSON.parse(event.data);
           this.handlers.forEach((handler) => handler(message));
         } catch (error) {
-          console.error("Failed to parse WebSocket message:", error);
+          log.error("Failed to parse WebSocket message:", error);
         }
       };
 
       this.ws.onclose = () => {
-        console.log("WebSocket disconnected");
+        log.info("WebSocket disconnected");
         this.isConnecting = false;
         this.ws = null;
         this.notifyConnectionChange(false);
@@ -71,11 +72,11 @@ class WebSocketManager {
       };
 
       this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        log.error("WebSocket error:", error);
         this.isConnecting = false;
       };
     } catch (error) {
-      console.error("Failed to create WebSocket:", error);
+      log.error("Failed to create WebSocket:", error);
       this.isConnecting = false;
       this.scheduleReconnect();
     }
@@ -121,7 +122,7 @@ class WebSocketManager {
         this.activeTypingMatches.delete(message.matchId);
       }
     } else {
-      console.warn("WebSocket not connected, cannot send message");
+      log.warn("WebSocket not connected, cannot send message");
     }
   }
 
