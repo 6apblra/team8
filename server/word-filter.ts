@@ -151,3 +151,16 @@ class WordFilter {
 }
 
 export const wordFilter = new WordFilter();
+
+/**
+ * Escape HTML special characters to prevent XSS.
+ * Should be applied to user-generated text before storage.
+ */
+export function sanitizeHtml(text: string): string {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}

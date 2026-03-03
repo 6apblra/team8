@@ -270,4 +270,23 @@ function setupErrorHandler(app: express.Application) {
   server.listen(port, "0.0.0.0", () => {
     log.info(`express server serving on port ${port}`);
   });
+
+  // Graceful shutdown
+  const shutdown = (signal: string) => {
+    log.info(`${signal} received — shutting down gracefully`);
+    server.close(() => {
+      log.info("HTTP server closed");
+      pool.end().then(() => {
+        log.info("Database pool closed");
+        process.exit(0);
+      });
+    });
+    // Force exit after 10s
+    setTimeout(() => {
+      log.warn("Forced shutdown after timeout");
+      process.exit(1);
+    }, 10_000);
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 })();

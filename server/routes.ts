@@ -2,8 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
-import { games, users } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
+import { games, users, profiles as profilesTable, userGames as userGamesTable } from "@shared/schema";
 import bcrypt from "bcrypt";
 import {
   addMatchToConnections,
@@ -25,7 +25,7 @@ import {
   blacklistToken,
 } from "./auth-utils";
 import { log } from "./logger";
-import { wordFilter } from "./word-filter";
+import { wordFilter, sanitizeHtml } from "./word-filter";
 import {
   registerSchema,
   loginSchema,
@@ -761,37 +761,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session.userId!;
       const userMatches = await storage.getMatches(userId);
 
-      const enrichedMatches = await Promise.all(
-        userMatches.map(async (match) => {
-          const otherUserId =
-            match.user1Id === userId ? match.user2Id : match.user1Id;
-          const profile = await storage.getProfile(otherUserId);
-          const userGames = await storage.getUserGames(otherUserId);
-          const { messages } = await storage.getMessages(match.id);
-          const lastMessage = messages[messages.length - 1];
-          const unreadCount = messages.filter(
-            (m: any) => !m.isRead && m.senderId !== userId,
-          ).length;
-
-          const isOnline = profile?.lastSeenAt
-            ? Date.now() - new Date(profile.lastSeenAt).getTime() < 5 * 60 * 1000
-            : false;
-          const isAvailableNow = !!(
-            profile?.isAvailableNow &&
-            profile?.availableUntil &&
-            new Date(profile.availableUntil) > new Date()
-          );
-
-          return {
-            ...match,
-            otherUser: { profile, userGames },
-            lastMessage,
-            unreadCount,
-            isOnline,
-            isAvailableNow,
-          };
-        }),
+      // Batch-load all other user profiles and games
+      const otherUserIds = userMatches.map((m) =>
+        m.user1Id === userId ? m.user2Id : m.user1Id,
       );
+
+      const [allProfiles, allUserGames, allMatchMessages] = await Promise.all([
+        otherUserIds.length > 0
+          ? db.select().from(profilesTable).where(inArray(profilesTable.userId, otherUserIds))
+          : Promise.resolve([]),
+        otherUserIds.length > 0
+          ? db.select().from(userGamesTable).where(inArray(userGamesTable.userId, otherUserIds))
+          : Promise.resolve([]),
+        Promise.all(userMatches.map((m) => storage.getMessages(m.id))),
+      ]);
+
+      const profilesMap = new Map(allProfiles.map((p: any) => [p.userId, p]));
+      const gamesMap = new Map<string, any[]>();
+      for (const g of allUserGames) {
+        if (!gamesMap.has((g as any).userId)) gamesMap.set((g as any).userId, []);
+        gamesMap.get((g as any).userId)!.push(g);
+      }
+
+      const enrichedMatches = userMatches.map((match, i) => {
+        const otherUserId =
+          match.user1Id === userId ? match.user2Id : match.user1Id;
+        const profile = profilesMap.get(otherUserId);
+        const userGames = gamesMap.get(otherUserId) || [];
+        const { messages } = allMatchMessages[i];
+        const lastMessage = messages[messages.length - 1];
+        const unreadCount = messages.filter(
+          (m: any) => !m.isRead && m.senderId !== userId,
+        ).length;
+
+        const isOnline = profile?.lastSeenAt
+          ? Date.now() - new Date(profile.lastSeenAt).getTime() < 5 * 60 * 1000
+          : false;
+        const isAvailableNow = !!(
+          profile?.isAvailableNow &&
+          profile?.availableUntil &&
+          new Date(profile.availableUntil) > new Date()
+        );
+
+        return {
+          ...match,
+          otherUser: { profile, userGames },
+          lastMessage,
+          unreadCount,
+          isOnline,
+          isAvailableNow,
+        };
+      });
 
       return res.json(enrichedMatches);
     } catch (error) {
@@ -838,8 +858,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!matchId)
           return res.status(400).json({ error: "matchId required" });
 
-        // Censor banned words in message content
-        const content = wordFilter.censor(rawContent);
+        // Sanitize HTML and censor banned words
+        const content = wordFilter.censor(sanitizeHtml(rawContent));
 
         const match = await storage.getMatch(matchId);
         if (!match) {
