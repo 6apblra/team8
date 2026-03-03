@@ -1,5 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, inArray } from "drizzle-orm";
@@ -434,7 +436,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "No file uploaded" });
         }
 
-        const avatarUrl = getUploadUrl(file.filename);
+        // Delete old avatar file if exists
+        const existingProfile = await storage.getProfile(userId);
+        if (existingProfile?.avatarUrl) {
+          const oldFilename = existingProfile.avatarUrl.split("/").pop();
+          if (oldFilename) {
+            const oldPath = path.join(process.cwd(), "server", "uploads", oldFilename);
+            fs.unlink(oldPath, () => { }); // best-effort
+          }
+        }
+
+        // Compress non-GIF images with sharp
+        let finalFilename = file.filename;
+        const isGif = file.mimetype === "image/gif";
+        if (!isGif) {
+          const sharp = (await import("sharp")).default;
+          const webpFilename = file.filename.replace(/\.[^.]+$/, ".webp");
+          const outputPath = path.join(process.cwd(), "server", "uploads", webpFilename);
+          await sharp(file.path)
+            .resize(512, 512, { fit: "cover", withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toFile(outputPath);
+          // Remove original uncompressed file
+          fs.unlink(file.path, () => { });
+          finalFilename = webpFilename;
+        }
+
+        const avatarUrl = getUploadUrl(finalFilename);
 
         // Update profile with new avatar URL
         const updated = await storage.updateProfile(userId, { avatarUrl });
