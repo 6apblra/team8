@@ -1,30 +1,14 @@
 import { db } from "./db";
 import { dailySwipeCounts, dailySuperLikeCounts, profiles, swipes } from "@shared/schema";
-import { lt, and, eq, sql } from "drizzle-orm";
+import { lt, and, eq } from "drizzle-orm";
 import { log } from "./logger";
 
-const SIX_HOURS = 6 * 60 * 60 * 1000;
-
 /**
- * Periodic cleanup of stale data:
- * - Daily swipe/super-like counts older than 2 days
- * - Expired "available now" statuses
- * - Left swipes older than 30 days (max cooldown expired)
+ * Hourly task: reset expired "available now" statuses.
+ * Runs every hour since availability can expire at any moment.
  */
-async function runCleanup() {
+async function runHourlyCleanup() {
     try {
-        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-        const twoDaysAgoStr = twoDaysAgo.toISOString().split("T")[0]; // YYYY-MM-DD
-
-        // Clean old daily swipe counts
-        const swipeResult = await db.delete(dailySwipeCounts)
-            .where(lt(dailySwipeCounts.date, twoDaysAgoStr));
-
-        // Clean old daily super-like counts
-        const superLikeResult = await db.delete(dailySuperLikeCounts)
-            .where(lt(dailySuperLikeCounts.date, twoDaysAgoStr));
-
-        // Reset expired "available now" statuses
         const now = new Date();
         const availResult = await db.update(profiles)
             .set({ isAvailableNow: false, availableUntil: null })
@@ -35,39 +19,94 @@ async function runCleanup() {
                 )
             );
 
-        // Clean expired left swipes (older than 30 days — max cooldown)
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const leftSwipeResult = await db.delete(swipes)
-            .where(
-                and(
-                    eq(swipes.swipeType, "left"),
-                    lt(swipes.createdAt!, thirtyDaysAgo)
-                )
-            );
-
-        log.info(
-            {
-                swipeCounts: swipeResult.rowCount,
-                superLikeCounts: superLikeResult.rowCount,
-                availability: availResult.rowCount,
-                expiredLeftSwipes: leftSwipeResult.rowCount,
-            },
-            "Cleanup completed"
-        );
+        if ((availResult.rowCount ?? 0) > 0) {
+            log.info({ availability: availResult.rowCount }, "Hourly cleanup: reset expired availability");
+        }
     } catch (error) {
-        log.error({ err: error }, "Cleanup job failed");
+        log.error({ err: error }, "Hourly cleanup failed");
     }
 }
 
 /**
- * Start the periodic cleanup job (every 6 hours).
+ * Daily task (midnight): clean stale data in a single transaction.
+ * - Daily swipe/super-like counts older than 2 days
+ * - Left swipes older than 30 days (max cooldown expired)
+ */
+async function runDailyCleanup() {
+    try {
+        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+        const twoDaysAgoStr = twoDaysAgo.toISOString().split("T")[0];
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        // All deletes in a single transaction
+        const results = await db.transaction(async (tx) => {
+            const swipeCounts = await tx.delete(dailySwipeCounts)
+                .where(lt(dailySwipeCounts.date, twoDaysAgoStr));
+
+            const superLikeCounts = await tx.delete(dailySuperLikeCounts)
+                .where(lt(dailySuperLikeCounts.date, twoDaysAgoStr));
+
+            const expiredLeftSwipes = await tx.delete(swipes)
+                .where(
+                    and(
+                        eq(swipes.swipeType, "left"),
+                        lt(swipes.createdAt!, thirtyDaysAgo)
+                    )
+                );
+
+            return {
+                swipeCounts: swipeCounts.rowCount ?? 0,
+                superLikeCounts: superLikeCounts.rowCount ?? 0,
+                expiredLeftSwipes: expiredLeftSwipes.rowCount ?? 0,
+            };
+        });
+
+        log.info(results, "Daily cleanup completed (midnight)");
+    } catch (error) {
+        log.error({ err: error }, "Daily cleanup failed");
+    }
+}
+
+/**
+ * Calculate ms until next midnight in the given timezone offset.
+ * @param utcOffsetHours - timezone offset in hours (e.g. +3 for Moscow)
+ */
+function msUntilMidnight(utcOffsetHours: number): number {
+    const now = new Date();
+    const localNow = new Date(now.getTime() + utcOffsetHours * 60 * 60 * 1000);
+    const tomorrow = new Date(localNow);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    return tomorrow.getTime() - localNow.getTime();
+}
+
+const ONE_HOUR = 60 * 60 * 1000;
+const ONE_DAY = 24 * 60 * 60 * 1000;
+
+// Server timezone offset (MSK = +3). Change this for other timezones.
+const SERVER_TZ_OFFSET = 3;
+
+/**
+ * Start cleanup jobs:
+ * - Hourly: expired availability reset
+ * - Daily at midnight (local): stale counts + expired left swipes (in transaction)
  */
 export function startCleanupJob() {
-    // Run once at startup (after 30s delay to let DB warm up)
-    setTimeout(runCleanup, 30_000);
+    // === Hourly: availability reset ===
+    setTimeout(runHourlyCleanup, 10_000); // first run after 10s
+    setInterval(runHourlyCleanup, ONE_HOUR);
 
-    // Then every 6 hours
-    setInterval(runCleanup, SIX_HOURS);
+    // === Daily at midnight local time ===
+    const msToMidnight = msUntilMidnight(SERVER_TZ_OFFSET);
+    const hoursToMidnight = (msToMidnight / ONE_HOUR).toFixed(1);
 
-    log.info("Cleanup job scheduled (every 6 hours)");
+    setTimeout(() => {
+        runDailyCleanup();
+        // Then repeat every 24 hours
+        setInterval(runDailyCleanup, ONE_DAY);
+    }, msToMidnight);
+
+    log.info(
+        `Cleanup scheduled: hourly (availability), daily at 00:00 MSK (in ${hoursToMidnight}h)`
+    );
 }
