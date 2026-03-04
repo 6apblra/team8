@@ -1074,7 +1074,17 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => r.fromUserId);
   }
 
+  // Throttle lastSeenAt updates: max once per 2 minutes per user
+  private lastSeenCache = new Map<string, number>();
+  private readonly LAST_SEEN_THROTTLE = 2 * 60 * 1000; // 2 min
+
   async updateLastSeen(userId: string): Promise<void> {
+    const now = Date.now();
+    const lastUpdate = this.lastSeenCache.get(userId);
+    if (lastUpdate && now - lastUpdate < this.LAST_SEEN_THROTTLE) {
+      return; // Skip — updated recently
+    }
+    this.lastSeenCache.set(userId, now);
     await db
       .update(profiles)
       .set({ lastSeenAt: new Date() })

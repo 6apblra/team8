@@ -120,6 +120,7 @@ export const swipes = pgTable(
     index("swipes_to_user_idx").on(table.toUserId, table.createdAt),
     index("swipes_from_user_idx").on(table.fromUserId, table.toUserId),
     index("swipes_from_created_idx").on(table.fromUserId, table.createdAt),
+    index("swipes_type_created_idx").on(table.swipeType, table.createdAt),
   ],
 );
 
@@ -163,6 +164,7 @@ export const messages = pgTable(
   (table) => [
     index("messages_match_idx").on(table.matchId, table.createdAt),
     index("messages_sender_idx").on(table.senderId),
+    index("messages_unread_idx").on(table.matchId, table.isRead, table.senderId),
   ],
 );
 
