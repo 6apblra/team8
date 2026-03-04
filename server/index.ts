@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, startDbHealthCheck } from "./db";
 import { registerRoutes } from "./routes";
 import { setupWebSocket } from "./websocket";
 import * as fs from "fs";
@@ -297,6 +297,7 @@ function setupErrorHandler(app: express.Application) {
   server.setTimeout(30_000); // 30s request timeout
 
   startCleanupJob();
+  startDbHealthCheck();
 
   // Graceful shutdown
   const shutdown = (signal: string) => {

@@ -94,11 +94,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await seedGames();
 
   app.get("/api/health", async (_req, res) => {
+    const { getPoolStats, isDbHealthy } = await import("./db");
+    const pool = getPoolStats();
     try {
       await db.execute(sql`SELECT 1`);
-      res.json({ status: "ok", uptime: process.uptime(), db: "connected" });
+      res.json({ status: "ok", uptime: process.uptime(), db: "connected", pool });
     } catch {
-      res.status(503).json({ status: "degraded", uptime: process.uptime(), db: "disconnected" });
+      res.status(503).json({ status: "degraded", uptime: process.uptime(), db: "disconnected", pool });
     }
   });
 
