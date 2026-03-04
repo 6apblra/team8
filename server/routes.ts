@@ -919,9 +919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const senderProfile = await storage.getProfile(senderId);
         if (senderProfile) {
-          notifyNewMessage(receiverId, senderProfile.nickname, content).catch(
-            () => { },
-          );
+          notifyNewMessage(receiverId, senderProfile.nickname, content);
         }
 
         return res.json(message);
