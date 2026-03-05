@@ -468,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const webpFilename = file.filename.replace(/\.[^.]+$/, ".webp");
           const outputPath = path.join(process.cwd(), "server", "uploads", webpFilename);
           await sharp(file.path)
-            .resize(512, 512, { fit: "cover", withoutEnlargement: true })
+            .resize(400, 400, { fit: "cover", withoutEnlargement: true })
             .webp({ quality: 80 })
             .toFile(outputPath);
           // Remove original uncompressed file
