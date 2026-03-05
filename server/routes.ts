@@ -28,6 +28,7 @@ import {
 } from "./auth-utils";
 import { log } from "./logger";
 import { wordFilter, sanitizeHtml } from "./word-filter";
+import { apiError, ErrorCode } from "./errors";
 import {
   registerSchema,
   loginSchema,
@@ -63,7 +64,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   if (!req.session.userId) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return apiError(res, 401, ErrorCode.AUTH_REQUIRED);
   }
   next();
 }
@@ -114,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const existing = await storage.getUserByEmail(email);
         if (existing) {
-          return res.status(400).json({ error: "Email already registered" });
+          return apiError(res, 400, ErrorCode.USERNAME_TAKEN);
         }
 
         const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -130,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         log.error({ err: error }, "Register error");
-        return res.status(500).json({ error: "Registration failed" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -145,12 +146,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const user = await storage.getUserByEmail(email);
         if (!user) {
-          return res.status(401).json({ error: "Invalid credentials" });
+          return apiError(res, 401, ErrorCode.INVALID_CREDENTIALS);
         }
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) {
-          return res.status(401).json({ error: "Invalid credentials" });
+          return apiError(res, 401, ErrorCode.INVALID_CREDENTIALS);
         }
 
         req.session.userId = user.id;
@@ -167,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         log.error({ err: error }, "Login error");
-        return res.status(500).json({ error: "Login failed" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -183,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     req.session.destroy((err) => {
       if (err) {
-        return res.status(500).json({ error: "Logout failed" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
       res.clearCookie("connect.sid");
       return res.json({ success: true });
@@ -194,17 +195,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { refreshToken } = req.body;
       if (!refreshToken) {
-        return res.status(400).json({ error: "Refresh token required" });
+        return apiError(res, 400, ErrorCode.MISSING_FIELD);
       }
 
       const decoded = verifyRefreshToken(refreshToken);
       if (!decoded) {
-        return res.status(401).json({ error: "Invalid refresh token" });
+        return apiError(res, 401, ErrorCode.INVALID_REFRESH_TOKEN);
       }
 
       const user = await storage.getUser(decoded.userId);
       if (!user) {
-        return res.status(401).json({ error: "User not found" });
+        return apiError(res, 401, ErrorCode.USER_NOT_FOUND);
       }
 
       await blacklistToken(refreshToken);
@@ -215,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ token: newToken, refreshToken: newRefreshToken });
     } catch (error) {
       log.error({ err: error }, "Refresh token error");
-      return res.status(500).json({ error: "Token refresh failed" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -224,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session.userId!;
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiError(res, 404, ErrorCode.USER_NOT_FOUND);
       }
       const profile = await storage.getProfile(userId);
       return res.json({
@@ -234,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       log.error({ err: error }, "Get me error");
-      return res.status(500).json({ error: "Failed to get user" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -250,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const user = await storage.getUser(userId);
         if (!user) {
-          return res.status(404).json({ error: "User not found" });
+          return apiError(res, 404, ErrorCode.USER_NOT_FOUND);
         }
 
         const validPassword = await bcrypt.compare(
@@ -258,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           user.passwordHash,
         );
         if (!validPassword) {
-          return res.status(400).json({ error: "Current password is incorrect" });
+          return apiError(res, 400, ErrorCode.INVALID_CREDENTIALS);
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
@@ -268,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       } catch (error) {
         log.error({ err: error }, "Change password error");
-        return res.status(500).json({ error: "Failed to change password" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -285,12 +286,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const user = await storage.getUser(userId);
         if (!user) {
-          return res.status(404).json({ error: "User not found" });
+          return apiError(res, 404, ErrorCode.USER_NOT_FOUND);
         }
 
         const validPassword = await bcrypt.compare(password, user.passwordHash);
         if (!validPassword) {
-          return res.status(400).json({ error: "Password is incorrect" });
+          return apiError(res, 400, ErrorCode.INVALID_CREDENTIALS);
         }
 
         await storage.deleteUser(userId);
@@ -300,7 +301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       } catch (error) {
         log.error({ err: error }, "Delete account error");
-        return res.status(500).json({ error: "Failed to delete account" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -318,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       } catch (error) {
         log.error({ err: error }, "Set push token error");
-        return res.status(500).json({ error: "Failed to set push token" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -331,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     } catch (error) {
       log.error({ err: error }, "Remove push token error");
-      return res.status(500).json({ error: "Failed to remove push token" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -341,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(allGames);
     } catch (error) {
       log.error({ err: error }, "Get games error");
-      return res.status(500).json({ error: "Failed to fetch games" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -350,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId } = req.params;
       const profile = await storage.getProfile(userId);
       if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+        return apiError(res, 404, ErrorCode.PROFILE_NOT_FOUND);
       }
 
       const userGames = await storage.getUserGames(userId);
@@ -359,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ profile, userGames, availability });
     } catch (error) {
       log.error({ err: error }, "Get profile error");
-      return res.status(500).json({ error: "Failed to fetch profile" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -374,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Moderate nickname
         if (profileData.nickname && wordFilter.containsBannedWord(profileData.nickname)) {
-          return res.status(400).json({ error: "Nickname contains inappropriate language" });
+          return apiError(res, 400, ErrorCode.CONTENT_FILTERED);
         }
         if (profileData.nickname) {
           profileData.nickname = sanitizeHtml(profileData.nickname);
@@ -394,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(profile);
       } catch (error) {
         log.error({ err: error }, "Create profile error");
-        return res.status(500).json({ error: "Failed to create profile" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -407,13 +408,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const userId = req.session.userId!;
         if (req.params.userId !== userId) {
-          return res.status(403).json({ error: "Forbidden" });
+          return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
         }
         const updates = req.body;
 
         // Moderate nickname
         if (updates.nickname && wordFilter.containsBannedWord(updates.nickname)) {
-          return res.status(400).json({ error: "Nickname contains inappropriate language" });
+          return apiError(res, 400, ErrorCode.CONTENT_FILTERED);
         }
         if (updates.nickname) {
           updates.nickname = sanitizeHtml(updates.nickname);
@@ -425,12 +426,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const updated = await storage.updateProfile(userId, updates);
         if (!updated) {
-          return res.status(404).json({ error: "Profile not found" });
+          return apiError(res, 404, ErrorCode.PROFILE_NOT_FOUND);
         }
         return res.json(updated);
       } catch (error) {
         log.error({ err: error }, "Update profile error");
-        return res.status(500).json({ error: "Failed to update profile" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -446,7 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const file = req.file;
 
         if (!file) {
-          return res.status(400).json({ error: "No file uploaded" });
+          return apiError(res, 400, ErrorCode.MISSING_FIELD);
         }
 
         // Delete old avatar file if exists
@@ -480,13 +481,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update profile with new avatar URL
         const updated = await storage.updateProfile(userId, { avatarUrl });
         if (!updated) {
-          return res.status(404).json({ error: "Profile not found" });
+          return apiError(res, 404, ErrorCode.PROFILE_NOT_FOUND);
         }
 
         return res.json({ avatarUrl, profile: updated });
       } catch (error) {
         log.error({ err: error }, "Avatar upload error");
-        return res.status(500).json({ error: "Failed to upload avatar" });
+        return apiError(res, 500, ErrorCode.UPLOAD_FAILED);
       }
     },
   );
@@ -498,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(userGames);
     } catch (error) {
       log.error({ err: error }, "Get user games error");
-      return res.status(500).json({ error: "Failed to fetch user games" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -518,7 +519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(updated);
       } catch (error) {
         log.error({ err: error }, "Set user games error");
-        return res.status(500).json({ error: "Failed to set user games" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -531,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const sessionUserId = req.session.userId!;
         if (req.params.userId !== sessionUserId) {
-          return res.status(403).json({ error: "Forbidden" });
+          return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
         }
         const { games: newGames } = req.body;
         await storage.setUserGames(
@@ -542,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(updated);
       } catch (error) {
         log.error({ err: error }, "Set user games error");
-        return res.status(500).json({ error: "Failed to set user games" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -554,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(availability);
     } catch (error) {
       log.error({ err: error }, "Get availability error");
-      return res.status(500).json({ error: "Failed to fetch availability" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -571,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(updated);
       } catch (error) {
         log.error({ err: error }, "Set availability error");
-        return res.status(500).json({ error: "Failed to set availability" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -584,7 +585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const sessionUserId = req.session.userId!;
         if (req.params.userId !== sessionUserId) {
-          return res.status(403).json({ error: "Forbidden" });
+          return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
         }
         const { windows } = req.body;
         await storage.setAvailability(sessionUserId, windows);
@@ -592,7 +593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(updated);
       } catch (error) {
         log.error({ err: error }, "Set availability error");
-        return res.status(500).json({ error: "Failed to set availability" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -629,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(candidates);
       } catch (error) {
         log.error({ err: error }, "Get feed error");
-        return res.status(500).json({ error: "Failed to fetch feed" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -721,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         log.error({ err: error }, "Swipe error");
-        return res.status(500).json({ error: "Failed to process swipe" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -745,7 +746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const lastSwipe = await storage.deleteLastSwipe(userId);
       if (!lastSwipe) {
-        return res.status(404).json({ error: "No swipe to undo" });
+        return apiError(res, 404, ErrorCode.NOT_FOUND);
       }
 
       storage.incrementDailyUndoCount(userId);
@@ -765,7 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       log.error({ err: error }, "Undo swipe error");
-      return res.status(500).json({ error: "Failed to undo swipe" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -793,7 +794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       log.error({ err: error }, "Get swipe status error");
-      return res.status(500).json({ error: "Failed to get swipe status" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -862,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ matches: enrichedMatches, hasMore, nextCursor });
     } catch (error) {
       log.error({ err: error }, "Get matches error");
-      return res.status(500).json({ error: "Failed to fetch matches" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -875,11 +876,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const match = await storage.getMatch(matchId);
       if (!match) {
-        return res.status(404).json({ error: "Match not found" });
+        return apiError(res, 404, ErrorCode.MATCH_NOT_FOUND);
       }
 
       if (match.user1Id !== userId && match.user2Id !== userId) {
-        return res.status(403).json({ error: "Forbidden" });
+        return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
       }
 
       const result = await storage.getMessages(matchId, limit, before);
@@ -888,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(result);
     } catch (error) {
       log.error({ err: error }, "Get messages error");
-      return res.status(500).json({ error: "Failed to fetch messages" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -902,18 +903,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { matchId, content: rawContent } = req.body;
 
         if (!matchId)
-          return res.status(400).json({ error: "matchId required" });
+          return apiError(res, 400, ErrorCode.MISSING_FIELD);
 
         // Sanitize HTML and censor banned words
         const content = wordFilter.censor(sanitizeHtml(rawContent));
 
         const match = await storage.getMatch(matchId);
         if (!match) {
-          return res.status(404).json({ error: "Match not found" });
+          return apiError(res, 404, ErrorCode.MATCH_NOT_FOUND);
         }
 
         if (match.user1Id !== senderId && match.user2Id !== senderId) {
-          return res.status(403).json({ error: "Forbidden" });
+          return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
         }
 
         const message = await storage.createMessage({
@@ -934,7 +935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(message);
       } catch (error) {
         log.error({ err: error }, "Send message error");
-        return res.status(500).json({ error: "Failed to send message" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -952,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       } catch (error) {
         log.error({ err: error }, "Report error");
-        return res.status(500).json({ error: "Failed to submit report" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -966,10 +967,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     } catch (error: any) {
       if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+        return apiError(res, 400, ErrorCode.VALIDATION_FAILED, error.errors);
       }
       log.error({ err: error }, "Block error");
-      return res.status(500).json({ error: "Failed to block user" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -980,7 +981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     } catch (error) {
       log.error({ err: error }, "Heartbeat error");
-      return res.status(500).json({ error: "Heartbeat failed" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1004,7 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         log.error({ err: error }, "Set available error");
-        return res.status(500).json({ error: "Failed to set availability" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -1019,7 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     } catch (error) {
       log.error({ err: error }, "Clear available error");
-      return res.status(500).json({ error: "Failed to clear availability" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1029,7 +1030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userIds } = req.query;
 
       if (!userIds || typeof userIds !== "string") {
-        return res.status(400).json({ error: "userIds query param required" });
+        return apiError(res, 400, ErrorCode.MISSING_FIELD);
       }
 
       const ids = userIds.split(",").filter(Boolean);
@@ -1038,7 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(statuses);
     } catch (error) {
       log.error({ err: error }, "Activity status error");
-      return res.status(500).json({ error: "Failed to get activity status" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1051,7 +1052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ boostedUntil });
     } catch (error) {
       log.error({ err: error }, "Boost error");
-      return res.status(500).json({ error: "Failed to activate boost" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1061,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.clearBoost(userId);
       return res.json({ success: true });
     } catch (error) {
-      return res.status(500).json({ error: "Failed to clear boost" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1073,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isBoosted = !!(profile?.boostedUntil && profile.boostedUntil > now);
       return res.json({ isBoosted, boostedUntil: profile?.boostedUntil || null });
     } catch (error) {
-      return res.status(500).json({ error: "Failed to get boost status" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1083,14 +1084,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.session.userId!;
       const { messageId } = req.params;
       const { emoji } = req.body;
-      if (!emoji) return res.status(400).json({ error: "emoji required" });
+      if (!emoji) return apiError(res, 400, ErrorCode.MISSING_FIELD);
 
       const message = await storage.getMessageById(messageId);
-      if (!message) return res.status(404).json({ error: "Message not found" });
+      if (!message) return apiError(res, 404, ErrorCode.NOT_FOUND);
 
       const match = await storage.getMatch(message.matchId);
       if (!match || (match.user1Id !== userId && match.user2Id !== userId)) {
-        return res.status(403).json({ error: "Forbidden" });
+        return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
       }
 
       const action = await storage.toggleReaction(messageId, userId, emoji);
@@ -1102,7 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ action, reactions: msgReactions });
     } catch (error) {
       log.error({ err: error }, "Reaction error");
-      return res.status(500).json({ error: "Failed to toggle reaction" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1117,23 +1118,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { reviewedUserId, matchId, rating, tags, comment } = req.body;
 
         if (reviewerId === reviewedUserId) {
-          return res.status(400).json({ error: "Cannot review yourself" });
+          return apiError(res, 400, ErrorCode.CANNOT_SWIPE_SELF);
         }
 
         // Verify they have a match together
         const match = matchId ? await storage.getMatch(matchId) : null;
         if (matchId) {
           if (!match || (match.user1Id !== reviewerId && match.user2Id !== reviewerId)) {
-            return res.status(403).json({ error: "No match found with this user" });
+            return apiError(res, 403, ErrorCode.MATCH_NOT_FOUND);
           }
           if (match.user1Id !== reviewedUserId && match.user2Id !== reviewedUserId) {
-            return res.status(403).json({ error: "Match does not involve reviewed user" });
+            return apiError(res, 403, ErrorCode.NOT_IN_MATCH);
           }
         }
 
         const alreadyReviewed = await storage.hasReviewed(reviewerId, reviewedUserId);
         if (alreadyReviewed) {
-          return res.status(409).json({ error: "You have already reviewed this user" });
+          return apiError(res, 409, ErrorCode.ALREADY_EXISTS);
         }
 
         const review = await storage.createReview({
@@ -1148,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(201).json(review);
       } catch (error) {
         log.error({ err: error }, "Create review error");
-        return res.status(500).json({ error: "Failed to create review" });
+        return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
       }
     },
   );
@@ -1160,7 +1161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(stats);
     } catch (error) {
       log.error({ err: error }, "Get review stats error");
-      return res.status(500).json({ error: "Failed to get review stats" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
@@ -1173,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ reviews: reviewsList, hasReviewed });
     } catch (error) {
       log.error({ err: error }, "Get reviews error");
-      return res.status(500).json({ error: "Failed to get reviews" });
+      return apiError(res, 500, ErrorCode.INTERNAL_ERROR);
     }
   });
 
