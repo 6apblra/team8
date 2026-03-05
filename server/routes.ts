@@ -893,6 +893,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Per-user message rate limiting: max 20 messages per 10s
+  const msgRateMap = new Map<string, { count: number; resetAt: number; lastContent?: string; lastAt?: number }>();
+  const MSG_RATE_LIMIT = 20;
+  const MSG_RATE_WINDOW = 10_000;
+  const DUPLICATE_WINDOW = 2_000;
+
   app.post(
     "/api/messages",
     requireAuth,
@@ -904,6 +910,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (!matchId)
           return apiError(res, 400, ErrorCode.MISSING_FIELD);
+
+        // Rate limit check
+        const now = Date.now();
+        const rateEntry = msgRateMap.get(senderId);
+        if (rateEntry && now < rateEntry.resetAt) {
+          rateEntry.count++;
+          if (rateEntry.count > MSG_RATE_LIMIT) {
+            return apiError(res, 429, ErrorCode.RATE_LIMIT);
+          }
+          // Duplicate content detection
+          if (rateEntry.lastContent === rawContent && rateEntry.lastAt && now - rateEntry.lastAt < DUPLICATE_WINDOW) {
+            return apiError(res, 429, ErrorCode.RATE_LIMIT);
+          }
+        } else {
+          msgRateMap.set(senderId, { count: 1, resetAt: now + MSG_RATE_WINDOW });
+        }
+        // Update last message info
+        const entry = msgRateMap.get(senderId)!;
+        entry.lastContent = rawContent;
+        entry.lastAt = now;
 
         // Sanitize HTML and censor banned words
         const content = wordFilter.censor(sanitizeHtml(rawContent));
