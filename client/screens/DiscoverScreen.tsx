@@ -864,6 +864,18 @@ export default function DiscoverScreen() {
     }
   }, [filters, user?.id, refetch]);
 
+  // Prefetch next 3 candidate avatars for instant card rendering
+  useEffect(() => {
+    if (!candidates.length) return;
+    const upcoming = candidates.slice(currentIndex + 1, currentIndex + 4);
+    const urls = upcoming
+      .map((c) => c.avatarUrl)
+      .filter((url): url is string => !!url);
+    if (urls.length > 0) {
+      Image.prefetch(urls);
+    }
+  }, [currentIndex, candidates]);
+
   const { data: swipeStatus } = useQuery<{
     dailyCount: number;
     limit: number;
