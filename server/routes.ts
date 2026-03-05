@@ -172,14 +172,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (authHeader) {
       const token = authHeader.split(" ")[1];
-      if (token) blacklistToken(token);
+      if (token) await blacklistToken(token);
     }
     const { refreshToken } = req.body || {};
-    if (refreshToken) blacklistToken(refreshToken);
+    if (refreshToken) await blacklistToken(refreshToken);
 
     req.session.destroy((err) => {
       if (err) {
@@ -207,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not found" });
       }
 
-      blacklistToken(refreshToken);
+      await blacklistToken(refreshToken);
 
       const newToken = generateToken(user.id);
       const newRefreshToken = generateRefreshToken(user.id);

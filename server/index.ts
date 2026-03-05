@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool, startDbHealthCheck } from "./db";
+import { loadBlacklistCache } from "./auth-utils";
 import { registerRoutes } from "./routes";
 import { setupWebSocket } from "./websocket";
 import * as fs from "fs";
@@ -271,6 +272,7 @@ function setupErrorHandler(app: express.Application) {
 
 (async () => {
   validateEnv();
+  await loadBlacklistCache();
   app.set("trust proxy", 1);
   setupCors(app);
   app.use(compression());

@@ -2,6 +2,7 @@ import { db } from "./db";
 import { dailySwipeCounts, dailySuperLikeCounts, profiles, swipes } from "@shared/schema";
 import { lt, and, eq } from "drizzle-orm";
 import { log } from "./logger";
+import { cleanupExpiredTokens } from "./auth-utils";
 
 /**
  * Hourly task: reset expired "available now" statuses.
@@ -61,7 +62,10 @@ async function runDailyCleanup() {
             };
         });
 
-        log.info(results, "Daily cleanup completed (midnight)");
+        // Clean expired blacklisted tokens (outside transaction — separate table)
+        const expiredTokens = await cleanupExpiredTokens();
+
+        log.info({ ...results, expiredTokens }, "Daily cleanup completed (midnight)");
     } catch (error) {
         log.error({ err: error }, "Daily cleanup failed");
     }

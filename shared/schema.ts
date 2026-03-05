@@ -282,6 +282,12 @@ export const dailySuperLikeCounts = pgTable(
   (table) => [index("daily_super_likes_user_date_idx").on(table.userId, table.date)],
 );
 
+export const tokenBlacklist = pgTable("token_blacklist", {
+  token: text("token").primaryKey(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles, {
     fields: [users.id],
