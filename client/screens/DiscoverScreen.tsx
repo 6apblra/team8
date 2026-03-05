@@ -797,6 +797,7 @@ export default function DiscoverScreen() {
   const [matchOverlayData, setMatchOverlayData] = useState<MatchOverlayData | null>(null);
   const [profileSheet, setProfileSheet] = useState<ProfileSheetData | null>(null);
   const lastSwipedCandidateRef = useRef<FeedCandidate | null>(null);
+  const swipeLockRef = useRef(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const nextCardTranslateX = useSharedValue(0);
@@ -992,7 +993,9 @@ export default function DiscoverScreen() {
 
   const handleSwipe = useCallback(
     (direction: "left" | "right" | "up") => {
-      if (!currentCandidate) return;
+      if (!currentCandidate || swipeLockRef.current) return;
+      swipeLockRef.current = true;
+      setTimeout(() => { swipeLockRef.current = false; }, 500);
 
       const swipeType =
         direction === "left" ? "skip" : direction === "up" ? "super" : "like";
@@ -1109,7 +1112,8 @@ export default function DiscoverScreen() {
   });
 
   const handleButtonSwipe = (direction: "left" | "right" | "up") => {
-    if (!currentCandidate) return;
+    if (!currentCandidate || swipeLockRef.current) return;
+    swipeLockRef.current = true;
 
     const targetX =
       direction === "left"
