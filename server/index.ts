@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { pool, startDbHealthCheck } from "./db";
+import { pool, startDbHealthCheck, isDbHealthy } from "./db";
 import { loadBlacklistCache } from "./auth-utils";
 import { registerRoutes } from "./routes";
 import { setupWebSocket } from "./websocket";
@@ -284,6 +284,18 @@ function setupErrorHandler(app: express.Application) {
 
   // API Rate Limiting
   app.use("/api", apiLimiter);
+
+  // Graceful degradation: 503 when DB is down (except health endpoint)
+  app.use("/api", (req, res, next) => {
+    if (req.path === "/health") return next();
+    if (!isDbHealthy()) {
+      res.set("Retry-After", "10");
+      return res.status(503).json({
+        error: { code: 9002, message: "Service temporarily unavailable" },
+      });
+    }
+    next();
+  });
 
   const server = await registerRoutes(app);
 
