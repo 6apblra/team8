@@ -305,7 +305,7 @@ function setupErrorHandler(app: express.Application) {
 
   const server = await registerRoutes(app);
 
-  setupWebSocket(server, sessionMiddleware);
+  const wss = setupWebSocket(server, sessionMiddleware);
   log.info("WebSocket server attached to /ws");
 
   setupErrorHandler(app);
@@ -320,8 +320,19 @@ function setupErrorHandler(app: express.Application) {
   startDbHealthCheck();
 
   // Graceful shutdown
-  const shutdown = (signal: string) => {
+  let isShuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) return; // prevent double shutdown
+    isShuttingDown = true;
     log.info(`${signal} received — shutting down gracefully`);
+
+    // 1. Close all WebSocket connections with 1001 (Going Away)
+    for (const client of (wss as any).clients) {
+      client.close(1001, "Server shutting down");
+    }
+    wss.close(() => log.info("WebSocket server closed"));
+
+    // 2. Stop accepting new HTTP connections, wait for in-flight to finish
     server.close(() => {
       log.info("HTTP server closed");
       pool.end().then(() => {
@@ -329,7 +340,8 @@ function setupErrorHandler(app: express.Application) {
         process.exit(0);
       });
     });
-    // Force exit after 10s
+
+    // Force exit after 10s if graceful shutdown hangs
     setTimeout(() => {
       log.warn("Forced shutdown after timeout");
       process.exit(1);
