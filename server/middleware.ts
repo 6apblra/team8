@@ -8,6 +8,10 @@ export const apiLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { error: "Too many requests, please try again later." },
+  keyGenerator: (req) => {
+    // Per-user limit when authenticated, per-IP otherwise
+    return (req.session as any)?.userId || req.ip || "unknown";
+  },
   skip: (req) => {
     // Don't rate limit WebSocket upgrade requests or health checks
     return req.path === "/health" || req.headers.upgrade === "websocket";
