@@ -78,8 +78,8 @@ export function setupWebSocket(server: Server, sessionParser: any) {
 
       log.info(`WebSocket connected: ${userId}`);
 
-      const userMatches = await storage.getMatches(userId!);
-      const matchIds = new Set(userMatches.map((m) => m.id));
+      const { matches: userMatches } = await storage.getMatches(userId!, 1000);
+      const matchIds = new Set(userMatches.map((m: any) => m.id));
 
       const connection: UserConnection = { userId: userId!, ws, matchIds };
       connections.set(userId!, connection);

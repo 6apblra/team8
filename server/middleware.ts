@@ -10,7 +10,7 @@ export const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
   keyGenerator: (req) => {
     // Per-user limit when authenticated, per-IP otherwise
-    return (req.session as any)?.userId || req.ip || "unknown";
+    return (req.session as any)?.userId || (req.ip || "unknown").replace(/:/g, "_");
   },
   skip: (req) => {
     // Don't rate limit WebSocket upgrade requests or health checks
