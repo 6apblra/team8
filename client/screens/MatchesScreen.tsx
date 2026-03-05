@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   SectionList,
   StyleSheet,
@@ -12,7 +12,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/query-client";
+import { getToken } from "@/lib/api-client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -134,16 +136,45 @@ export default function MatchesScreen() {
 
   const queryClient = useQueryClient();
 
+  interface MatchesPage {
+    matches: MatchData[];
+    hasMore: boolean;
+    nextCursor?: string;
+  }
+
   const {
-    data: matches = [],
+    data,
     isLoading,
     refetch,
     isRefetching,
-  } = useQuery<MatchData[]>({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<MatchesPage>({
     queryKey: ["/api/matches", user?.id],
     enabled: !!user?.id,
     refetchInterval: 10000,
+    queryFn: async ({ pageParam }) => {
+      const baseUrl = getApiUrl();
+      const url = new URL("/api/matches", baseUrl);
+      url.searchParams.set("limit", "20");
+      if (pageParam) url.searchParams.set("before", pageParam as string);
+      const headers: HeadersInit = {};
+      const token = await getToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(url, { headers, credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : undefined,
   });
+
+  const matches = useMemo(
+    () => data?.pages.flatMap((p) => p.matches) ?? [],
+    [data],
+  );
 
   // Real-time: invalidate matches list on new message or read receipt
   const handleWsMessage = useCallback(
@@ -279,8 +310,16 @@ export default function MatchesScreen() {
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        onEndReachedThreshold={0.3}
         ListFooterComponent={
-          conversations.length === 0 && newMatches.length > 0 ? (
+          isFetchingNextPage ? (
+            <View style={styles.loadMoreSpinner}>
+              <ActivityIndicator size="small" color={theme.primary} />
+            </View>
+          ) : conversations.length === 0 && newMatches.length > 0 ? (
             <View style={[styles.noConversationsHint, { borderColor: theme.border }]}>
               <Feather name="message-circle" size={20} color={theme.textSecondary} />
               <ThemedText style={[styles.noConversationsText, { color: theme.textSecondary }]}>
@@ -411,5 +450,9 @@ const styles = StyleSheet.create({
   noConversationsText: {
     fontSize: 14,
     flex: 1,
+  },
+  loadMoreSpinner: {
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
   },
 });

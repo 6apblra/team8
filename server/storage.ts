@@ -29,7 +29,7 @@ import {
   type InsertReview,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, sql, desc, ne, notInArray, inArray, gt } from "drizzle-orm";
+import { eq, and, or, sql, desc, ne, notInArray, inArray, gt, lt } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 
@@ -169,7 +169,7 @@ export interface IStorage {
   getUndoLimit(userId: string): Promise<number>;
 
   createMatch(user1Id: string, user2Id: string): Promise<Match>;
-  getMatches(userId: string): Promise<Match[]>;
+  getMatches(userId: string, limit?: number, before?: string): Promise<{ matches: Match[]; hasMore: boolean }>;
   getMatch(matchId: string): Promise<Match | undefined>;
   getMatchByUsers(user1Id: string, user2Id: string): Promise<Match | undefined>;
 
@@ -721,12 +721,39 @@ export class DatabaseStorage implements IStorage {
     return match;
   }
 
-  async getMatches(userId: string): Promise<Match[]> {
-    return db
+  async getMatches(userId: string, limit = 20, before?: string): Promise<{ matches: Match[]; hasMore: boolean }> {
+    const pageSize = limit + 1; // fetch one extra to check hasMore
+    let query = db
       .select()
       .from(matches)
       .where(or(eq(matches.user1Id, userId), eq(matches.user2Id, userId)))
-      .orderBy(desc(matches.lastMessageAt), desc(matches.matchedAt));
+      .orderBy(desc(matches.lastMessageAt), desc(matches.matchedAt))
+      .limit(pageSize);
+
+    if (before) {
+      const cursorDate = new Date(before);
+      query = db
+        .select()
+        .from(matches)
+        .where(
+          and(
+            or(eq(matches.user1Id, userId), eq(matches.user2Id, userId)),
+            or(
+              lt(matches.lastMessageAt!, cursorDate),
+              and(
+                sql`${matches.lastMessageAt} IS NULL`,
+                lt(matches.matchedAt!, cursorDate)
+              )
+            )
+          )
+        )
+        .orderBy(desc(matches.lastMessageAt), desc(matches.matchedAt))
+        .limit(pageSize);
+    }
+
+    const results = await query;
+    const hasMore = results.length > limit;
+    return { matches: results.slice(0, limit), hasMore };
   }
 
   async getMatch(matchId: string): Promise<Match | undefined> {

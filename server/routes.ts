@@ -800,7 +800,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/matches", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
-      const userMatches = await storage.getMatches(userId);
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const before = req.query.before as string | undefined;
+
+      const { matches: userMatches, hasMore } = await storage.getMatches(userId, limit, before);
 
       // Batch-load all other user profiles and games
       const otherUserIds = userMatches.map((m) =>
@@ -850,7 +853,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
-      return res.json(enrichedMatches);
+      // Cursor for next page = matchedAt of last match
+      const lastMatch = userMatches[userMatches.length - 1];
+      const nextCursor = hasMore && lastMatch
+        ? (lastMatch.lastMessageAt || lastMatch.matchedAt)?.toISOString()
+        : undefined;
+
+      return res.json({ matches: enrichedMatches, hasMore, nextCursor });
     } catch (error) {
       log.error({ err: error }, "Get matches error");
       return res.status(500).json({ error: "Failed to fetch matches" });
