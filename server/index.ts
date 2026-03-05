@@ -246,6 +246,12 @@ function configureExpoAndLanding(app: express.Application) {
     "/uploads",
     express.static(path.resolve(process.cwd(), "server", "uploads"), {
       maxAge: "7d",
+      etag: true,
+      lastModified: true,
+      immutable: true, // files are UUID-named, never change
+      setHeaders: (res) => {
+        res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+      },
     }),
   );
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
